@@ -1,0 +1,49 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Bojoyzhou's MindMap tool</title>
+    <style>
+    html, body {
+        width: 100%;
+        height: 100%;
+        background: #fafafa;
+        margin: 0;
+        padding: 0;
+    }
+    body{
+
+    }
+    .node{
+        position: absolute;
+        padding: 12px 18px;
+        line-height: 1.6;
+        border-radius: 5px;
+        cursor: pointer;
+        box-shadow: 0 1px 8px rgba(0,0,0,.2);
+        outline: none;
+    }
+    .node--active{
+        box-shadow: 0 0 8px #29B6F6;
+    }
+    .node--edit{
+        box-shadow: 0 2 2px #29B6F6;
+    }
+    .area{
+        position: absolute;
+        border: #29B6F6 solid 1px;
+        background: rgba(41, 182, 246, .3)
+    }
+    </style>
+</head>
+
+<body>
+    <svg id='svg' width="100%" height="100%" version="1.1" xmlns="http://www.w3.org/2000/svg">
+        <filter id="blurMe" filterUnits="userSpaceOnUse">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1" />
+        </filter>
+    </svg>
+    <div id="area" class="area"></div>
+    <script type="text/javascript" src="bundle.js"></script>
+</body>
+
+</html>
