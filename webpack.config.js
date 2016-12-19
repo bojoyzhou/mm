@@ -6,12 +6,12 @@ module.exports = {
     debug: process.env.NODE_ENV !== 'production',
     context: __dirname,
     entry: {
-        js: './js/index.js',
-        html: ['./index.html'],
+        index: ['./index.html', './js/index.js'],
+        canvas: ['./test/canvas.html','./test/testBezier.js'],
     },
     output: {
         path: path.join(__dirname, './dist'),
-        filename: 'bundle.js',
+        filename: '[name].bundle.js',
     },
     module: {
         loaders: [{
