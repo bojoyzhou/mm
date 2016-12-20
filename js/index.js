@@ -44,7 +44,14 @@ class Node {
 
     }
     setBounding() {
-        const { top, right, bottom, left, width, height } = this.elem.getBoundingClientRect()
+        const {
+            top,
+            right,
+            bottom,
+            left,
+            width,
+            height
+        } = this.elem.getBoundingClientRect()
 
         if (!this.children.length) {
             this.top = this.t_top = top
@@ -84,16 +91,25 @@ class Node {
         if (this.isdata) {
             n = new Node(text, true)
             n.root = n
+            n.level = 1
             n.data = this
             n.color = randomColor()
         } else {
             n = new Node(text)
+            n.level = this.level + 1
             n.root = this.root
             n.data = this.data
             n.color = this.color
         }
+        n.width = Math.max(10 - n.level, 2)
         n.parent = this
-        n.parentEdge = new Edge(n.parent.getEdgeC(), n.getEdgeP())
+        n.parentEdge = new Edge({
+            p0: n.parent.getEdgeC(),
+            p1: n.getEdgeP(),
+            color: n.color,
+            startWidth: n.parent.width,
+            endWidth: n.width
+        })
         this.children.push(n)
         return n
     }
@@ -133,7 +149,7 @@ class Node {
             this.t_bottom = this.bottom
             this.t_left = this.left
         }
-        if(this.parentEdge){
+        if (this.parentEdge) {
             this.parentEdge.moveTo(this.parent.getEdgeP(), this.getEdgeC())
         }
     }
@@ -165,10 +181,10 @@ class Node {
     }
 }
 class Edge {
-    constructor(){
+    constructor(p0, p1) {
 
     }
-    moveTo(p0, p1){
+    moveTo(p0, p1) {
 
     }
 }
@@ -210,5 +226,11 @@ class Render {
 
 var d = new Data(data)
 d.render()
-let { t_width, t_left, t_height, t_top } = d.children[0]
+let {
+    t_width,
+    t_left,
+    t_height,
+    t_top
+} = d.children[0]
 d.moveTo(document.body.offsetWidth / 2 - t_width / 2 - t_left, document.body.offsetHeight / 2 - t_height / 2 - t_top)
+window.d = d
