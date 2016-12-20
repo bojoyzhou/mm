@@ -82,6 +82,10 @@
 
 	var _createClass3 = _interopRequireDefault(_createClass2);
 
+	var _line = __webpack_require__(91);
+
+	var _line2 = _interopRequireDefault(_line);
+
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 	var PW = 50,
@@ -112,6 +116,7 @@
 	        this.ischanged = true;
 	        this.level = 0;
 	        this.root = null;
+	        this.size = 0;
 	        this.color = randomColor();
 	        this.id = Node.id++;
 	    }
@@ -120,14 +125,17 @@
 	        key: "setPos",
 	        value: function setPos(left, top) {
 	            if (this.left !== left) {
+	                this.t_left += left - this.left;
 	                this.left = left;
 	                this.ischanged = true;
 	            }
 	            if (this.top !== top) {
+	                this.t_top += top - this.top;
 	                this.top = top;
 	                this.ischanged = true;
 	            }
 	            this.resize();
+	            // console.log([this.text, this.left, this.top, this.width, this.height, this.right, this.bottom].join(', '))
 	        }
 	    }, {
 	        key: "setText",
@@ -149,6 +157,7 @@
 	            }
 	            var globalData = n.globalData = this.globalData;
 	            n.level = this.level + 1;
+	            n.size = Math.max(10 - n.level * 2, 2);
 	            this.addNode(n);
 	            if (!this.isData) {
 	                var edge = new Edge(this, n);
@@ -203,10 +212,7 @@
 	    }, {
 	        key: "moveTo",
 	        value: function moveTo(left, top) {
-	            this.t_left += left - this.left;
-	            this.t_top += top - this.top;
-	            this.left = left;
-	            this.top = top;
+	            this.setPos(left, top);
 	            this.resize();
 	            this.ischanged = true;
 	        }
@@ -245,16 +251,22 @@
 	    function Edge(a, b) {
 	        (0, _classCallCheck3.default)(this, Edge);
 
-	        this.d = '';
+	        this.d = {
+	            p0: [0, 0],
+	            p1: [0, 0],
+	            p2: [0, 0],
+	            p3: [0, 0]
+	        };
 	        this.a = a;
 	        this.b = b;
+	        a.nextE = this;
+	        b.preE = this;
 	        this.ischanged = true;
 	        if (a.isroot) {
 	            this.color = b.color;
 	        } else {
 	            b.color = this.color = a.color;
 	        }
-	        b.size = this.size = Math.max(10 - b.level * 2, 2);
 	        this.id = Edge.id++;
 	    }
 
@@ -351,17 +363,22 @@
 	                    right = abound;
 	                }
 
-	                var lrc = [left.right, left.bottom - e.size / 4],
-	                    rlc = [right.left, right.bottom - e.size / 4],
+	                var lrc = [left.right, left.bottom],
+	                    rlc = [right.left, right.bottom],
 	                    distance = right.left - left.right;
 	                if (e.a.isroot) {
-	                    lrc = [left.right, left.bottom - left.height / 2 + e.size / 4];
+	                    lrc = [left.right, left.bottom - left.height / 2];
 	                }
-	                var m = lrc.join(' '),
-	                    c1 = [lrc[0] + distance / 2, lrc[1]].join(' '),
-	                    c2 = [rlc[0] - distance / 2, rlc[1]].join(' '),
-	                    c3 = rlc.join(' ');
-	                e.setD("M" + m + " C " + c1 + ", " + c2 + ", " + c3);
+	                var p0 = lrc,
+	                    p1 = [lrc[0] + distance / 2, lrc[1]],
+	                    p2 = [rlc[0] - distance / 2, rlc[1]],
+	                    p3 = rlc;
+	                e.setD({
+	                    p0: p0,
+	                    p1: p1,
+	                    p2: p2,
+	                    p3: p3
+	                });
 	            });
 	        }
 	    }, {
@@ -426,7 +443,9 @@
 	            });
 	            var len = node.children.length;
 	            var firstChild = node.children[0],
-	                lastChild = node.children[len - 1];
+	                lastChild = node.children[len - 1],
+	                firstChildBcr = firstChild.ischanged ? firstChild : this.getElem(firstChild).getBoundingClientRect(),
+	                nodeBcr = node.ischanged ? node : this.getElem(node).getBoundingClientRect();
 	            var t_height = void 0,
 	                t_width = void 0,
 	                t_left = void 0,
@@ -435,31 +454,37 @@
 	                t_bottom = void 0,
 	                left = void 0,
 	                top = void 0,
-	                current = void 0;
+	                current = void 0,
+	                currentBcr = void 0;
 	            t_right = firstChild.t_right;
 	            for (var i = 1; i < len; i++) {
-	                var last = node.children[i - 1];
+	                var last = node.children[i - 1],
+	                    lastBcr = last.ischanged ? last : this.getElem(last).getBoundingClientRect();
 
 	                current = node.children[i];
+	                currentBcr = current.ischanged ? current : this.getElem(current).getBoundingClientRect();
 
-	                left = last.left;
-	                top = last.top + last.height / 2 + last.t_height / 2 + PH - current.height / 2 + current.t_height / 2;
+	                left = lastBcr.left;
+	                top = lastBcr.top + lastBcr.height / 2 + last.t_height / 2 + PH - currentBcr.height / 2 + current.t_height / 2;
 
 	                current.moveBy({
-	                    x: left - current.left,
-	                    y: top - current.top
+	                    x: left - currentBcr.left,
+	                    y: top - currentBcr.top
 	                });
+	                currentBcr = current.ischanged ? current : this.getElem(current).getBoundingClientRect();
 
 	                t_right = Math.max(t_right, current.t_right);
 	            }
-	            left = firstChild.left - PW - node.width;
-	            top = (firstChild.top + current.top) / 2;
-	            node.setPos(left, top);
 
 	            t_top = firstChild.t_top;
-	            t_left = Math.min(firstChild.t_left, node.left);
-	            t_bottom = lastChild.bottom;
+	            t_bottom = currentBcr.bottom;
 
+	            left = firstChildBcr.left - PW - nodeBcr.width;
+	            top = t_top + (t_bottom - t_top) / 2 - nodeBcr.height / 2;
+	            node.setPos(left, top);
+	            nodeBcr = node.ischanged ? node : this.getElem(node).getBoundingClientRect();
+
+	            t_left = Math.min(firstChild.t_left, nodeBcr.left);
 	            t_width = t_right - t_left;
 	            t_height = t_bottom - t_top;
 	            return {
@@ -479,7 +504,10 @@
 	Calculator.height = document.body.offsetHeight;
 
 	var View = function () {
-	    function View(data) {
+	    function View(data, _ref3) {
+	        var drawLine = _ref3.drawLine,
+	            drawBezier = _ref3.drawBezier,
+	            clear = _ref3.clear;
 	        (0, _classCallCheck3.default)(this, View);
 
 	        this.data = data;
@@ -488,8 +516,11 @@
 	        this.elems = [];
 	        this.nodes = [];
 	        this.elemMap = [];
+	        this.drawBezier = drawBezier;
+	        this.drawLine = drawLine;
+	        this.clear = clear;
 
-	        this.svg = document.getElementById('svg');
+	        this.container = document.getElementById('nodes');
 	    }
 
 	    (0, _createClass3.default)(View, [{
@@ -514,7 +545,7 @@
 	            var elem = document.createElement('div');
 	            elem.classList.add('node');
 
-	            document.body.appendChild(elem);
+	            this.container.appendChild(elem);
 	            return elem;
 	        }
 	    }, {
@@ -525,15 +556,22 @@
 	                text = node.text;
 
 
-	            elem.style.left = parseInt(left) + 'px';
-	            elem.style.top = parseInt(top) + 'px';
-	            elem.style.borderBottomColor = node.color;
-	            elem.style.borderBottomWidth = node.size;
+	            elem.style.left = left + 'px';
+	            elem.style.top = top + 'px';
 	            elem.textContent = text;
+	            if (!node.isroot) {
+	                var p0 = [node.left - 1, node.bottom],
+	                    p1 = [node.right + 1, node.bottom];
+	                this.drawLine({
+	                    p0: p0,
+	                    p1: p1,
+	                    style: node.color,
+	                    width: node.size
+	                });
+	            }
 
 	            var width = elem.offsetWidth;
 	            var height = elem.offsetHeight;
-
 	            node.rendered({
 	                width: width,
 	                height: height
@@ -554,9 +592,22 @@
 	        }
 	    }, {
 	        key: "applyStyleEdge",
-	        value: function applyStyleEdge(path, edge) {
-	            path.setAttribute('d', edge.d);
-	            path.style.strokeWidth = edge.size + 'px';
+	        value: function applyStyleEdge(edge) {
+	            var _edge$d = edge.d,
+	                p0 = _edge$d.p0,
+	                p1 = _edge$d.p1,
+	                p2 = _edge$d.p2,
+	                p3 = _edge$d.p3;
+
+	            this.drawBezier({
+	                p0: p0,
+	                p1: p1,
+	                p2: p2,
+	                p3: p3,
+	                style: edge.color,
+	                startWidth: edge.a.size,
+	                endWidth: edge.b.size
+	            });
 	            edge.rendered();
 	        }
 	    }, {
@@ -580,6 +631,7 @@
 	        value: function render() {
 	            var _this7 = this;
 
+	            this.clear();
 	            var changed = false;
 	            this.data.all.forEach(function (node) {
 	                if (node.ischanged) {
@@ -596,7 +648,7 @@
 
 	            this.data.edges.forEach(function (edge) {
 	                if (edge.ischanged) {
-	                    _this8.applyStyleEdge(_this8.getEdge(edge), edge);
+	                    _this8.applyStyleEdge(edge);
 	                }
 	            });
 	        }
@@ -605,17 +657,25 @@
 	}();
 
 	var Renderer = function () {
-	    function Renderer(data) {
+	    function Renderer(data, _ref4) {
 	        var _this9 = this;
 
+	        var drawLine = _ref4.drawLine,
+	            drawBezier = _ref4.drawBezier,
+	            clear = _ref4.clear;
 	        (0, _classCallCheck3.default)(this, Renderer);
 
 	        this.data = data;
-	        this.view = new View(data);
+	        this.view = new View(data, {
+	            drawLine: drawLine,
+	            drawBezier: drawBezier,
+	            clear: clear
+	        });
 	        this.calculator = new Calculator(data, function (node) {
 	            return _this9.view.getElem(node);
 	        });
 	        this.render = this.render.bind(this);
+	        this.lasttime = Date.now();
 	    }
 
 	    (0, _createClass3.default)(Renderer, [{
@@ -625,11 +685,25 @@
 	            this.view.renderEdge();
 	            this.calculator.calNode();
 	            this.calculator.calEdge();
+	            var t = Date.now();
+	            document.title = 1000 / (t - this.lasttime) + " fps";
+	            this.lasttime = t;
 	            requestAnimationFrame(this.render);
 	        }
 	    }]);
 	    return Renderer;
 	}();
+
+	var canvas = document.getElementById('canvas');
+	var N = 2;
+	canvas.width = document.body.offsetWidth * N;
+	canvas.height = document.body.offsetHeight * N;
+	var ctx = canvas.getContext('2d');
+
+	var _makeLines = (0, _line2.default)(ctx),
+	    drawLine = _makeLines.drawLine,
+	    drawBezier = _makeLines.drawBezier,
+	    clear = _makeLines.clear;
 
 	var d = new Data();
 	var data = [{
@@ -672,14 +746,20 @@
 	        "children": []
 	    }]
 	}];
+	var worker = new Worker('/worker.bundle.js');
+	worker.postMessage(data);
+	// d.parse(data)
 
-	d.parse(data);
+	// console.log(d.serialize())
 
-	console.log(d.serialize());
 
-	var renderer = new Renderer(d);
-	window.renderer = renderer;
-	renderer.render();
+	// var renderer = new Renderer(d, {
+	//     drawLine,
+	//     drawBezier,
+	//     clear
+	// })
+	// window.renderer = renderer
+	// renderer.render()
 
 /***/ },
 /* 5 */
@@ -2210,6 +2290,134 @@
 	var $export = __webpack_require__(17);
 	// 19.1.2.4 / 15.2.3.6 Object.defineProperty(O, P, Attributes)
 	$export($export.S + $export.F * !__webpack_require__(26), 'Object', {defineProperty: __webpack_require__(22).f});
+
+/***/ },
+/* 91 */
+/***/ function(module, exports) {
+
+	'use strict';
+
+	Object.defineProperty(exports, "__esModule", {
+		value: true
+	});
+
+	exports.default = function (ctx) {
+		return {
+			clear: clear.bind(ctx),
+			drawLine: drawLine.bind(ctx),
+			drawBezier: drawBezier.bind(ctx)
+		};
+	};
+
+	function clear() {
+		var ctx = this;
+		var _ctx$canvas = ctx.canvas,
+		    width = _ctx$canvas.width,
+		    height = _ctx$canvas.height;
+
+		ctx.clearRect(0, 0, width, height);
+	}
+
+	function drawLine(_ref) {
+		var p0 = _ref.p0,
+		    p1 = _ref.p1,
+		    width = _ref.width,
+		    style = _ref.style,
+		    N = _ref.N;
+
+		N = N || 2;
+		p0 = m(p0, N);
+		p1 = m(p1, N);
+		width = width * N;
+		var ctx = this;
+		ctx.beginPath();
+		ctx.moveTo.apply(ctx, p0);
+		ctx.lineWidth = width;
+		ctx.strokeStyle = style;
+		ctx.lineTo.apply(ctx, p1);
+		ctx.stroke();
+	}
+
+	function drawBezier(_ref2) {
+		var p0 = _ref2.p0,
+		    p1 = _ref2.p1,
+		    p2 = _ref2.p2,
+		    p3 = _ref2.p3,
+		    getWidth = _ref2.getWidth,
+		    startWidth = _ref2.startWidth,
+		    endWidth = _ref2.endWidth,
+		    width = _ref2.width,
+		    segment = _ref2.segment,
+		    style = _ref2.style,
+		    N = _ref2.N;
+
+		N = N || 2;
+		var ctx = this;
+		p0 = m(p0, N);
+		p1 = m(p1, N);
+		p2 = m(p2, N);
+		p3 = m(p3, N);
+		if (!getWidth) {
+			if (startWidth != undefined && endWidth !== undefined) {
+				startWidth = startWidth * N;
+				endWidth = endWidth * N;
+				getWidth = function getWidth(t) {
+					return t * (endWidth - startWidth) + startWidth;
+				};
+			}
+			if (width) {
+				width = width * N;
+				getWidth = function getWidth(t) {
+					return width;
+				};
+			}
+		}
+		if (!getWidth) {
+			throw Error('width invalid');
+		}
+		ctx.beginPath();
+		ctx.moveTo.apply(ctx, p0);
+		segment = segment || 100;
+		var t = 0,
+		    c = 1 / segment;
+		while (t < 1) {
+			draw(t);
+			t += c;
+		}
+		draw(1);
+
+		function draw(t) {
+			var a = m(p0, Math.pow(1 - t, 3)),
+			    b = m(p1, 3, t, Math.pow(1 - t, 2)),
+			    c = m(p2, 3, Math.pow(t, 2), 1 - t),
+			    d = m(p3, Math.pow(t, 3)),
+			    w = getWidth(t),
+			    p = add(a, b, c, d);
+
+			ctx.lineWidth = w;
+			ctx.strokeStyle = style;
+			ctx.lineTo.apply(ctx, p);
+			ctx.stroke();
+		}
+	}
+
+	function m(p) {
+		var t = 1;
+		for (var i = 1; i < arguments.length; i++) {
+			t *= arguments[i];
+		}
+		return [p[0] * t, p[1] * t];
+	}
+
+	function add() {
+		var x = 0,
+		    y = 0;
+		for (var i = 0; i < arguments.length; i++) {
+			x += arguments[i][0];
+			y += arguments[i][1];
+		}
+		return [x, y];
+	}
 
 /***/ }
 /******/ ]);

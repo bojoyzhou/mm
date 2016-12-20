@@ -7,6 +7,7 @@ module.exports = {
     context: __dirname,
     entry: {
         index: ['./index.html', './js/index.js'],
+        worker: ['./js/worker.js'],
         canvas: ['./test/canvas.html','./test/testBezier.js'],
     },
     output: {
