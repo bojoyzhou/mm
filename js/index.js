@@ -1,5 +1,6 @@
 import data from './data'
 import makeLines from '../lib/line'
+import EventEmitter from 'events'
 const PW = 50,
     PH = 20
 const colors = ["rgb(244, 67, 54)", "rgb(239, 83, 80)", "rgb(244, 67, 54)", "rgb(229, 57, 53)", "rgb(211, 47, 47)", "rgb(198, 40, 40)", "rgb(183, 28, 28)", "rgb(255, 82, 82)", "rgb(255, 23, 68)", "rgb(213, 0, 0)", "rgb(233, 30, 99)", "rgb(240, 98, 146)", "rgb(236, 64, 122)", "rgb(233, 30, 99)", "rgb(216, 27, 96)", "rgb(194, 24, 91)", "rgb(173, 20, 87)", "rgb(136, 14, 79)", "rgb(255, 64, 129)", "rgb(245, 0, 87)", "rgb(197, 17, 98)", "rgb(156, 39, 176)", "rgb(186, 104, 200)", "rgb(171, 71, 188)", "rgb(156, 39, 176)", "rgb(142, 36, 170)", "rgb(123, 31, 162)", "rgb(106, 27, 154)", "rgb(74, 20, 140)", "rgb(224, 64, 251)", "rgb(213, 0, 249)", "rgb(170, 0, 255)", "rgb(103, 58, 183)", "rgb(149, 117, 205)", "rgb(126, 87, 194)", "rgb(103, 58, 183)", "rgb(94, 53, 177)", "rgb(81, 45, 168)", "rgb(69, 39, 160)", "rgb(49, 27, 146)", "rgb(124, 77, 255)", "rgb(101, 31, 255)", "rgb(98, 0, 234)", "rgb(63, 81, 181)", "rgb(121, 134, 203)", "rgb(92, 107, 192)", "rgb(63, 81, 181)", "rgb(57, 73, 171)", "rgb(48, 63, 159)", "rgb(40, 53, 147)", "rgb(26, 35, 126)", "rgb(83, 109, 254)", "rgb(61, 90, 254)", "rgb(48, 79, 254)", "rgb(33, 150, 243)", "rgb(33, 150, 243)", "rgb(30, 136, 229)", "rgb(25, 118, 210)", "rgb(21, 101, 192)", "rgb(13, 71, 161)", "rgb(68, 138, 255)", "rgb(41, 121, 255)", "rgb(41, 98, 255)", "rgb(3, 169, 244)", "rgb(3, 155, 229)", "rgb(2, 136, 209)", "rgb(2, 119, 189)", "rgb(1, 87, 155)", "rgb(0, 145, 234)", "rgb(0, 188, 212)", "rgb(0, 151, 167)", "rgb(0, 131, 143)", "rgb(0, 96, 100)", "rgb(0, 150, 136)", "rgb(0, 150, 136)", "rgb(0, 137, 123)", "rgb(0, 121, 107)", "rgb(0, 105, 92)", "rgb(0, 77, 64)", "rgb(76, 175, 80)", "rgb(67, 160, 71)", "rgb(56, 142, 60)", "rgb(46, 125, 50)", "rgb(27, 94, 32)", "rgb(139, 195, 74)", "rgb(104, 159, 56)", "rgb(85, 139, 47)", "rgb(51, 105, 30)", "rgb(205, 220, 57)", "rgb(130, 119, 23)", "rgb(255, 235, 59)", "rgb(255, 193, 7)", "rgb(255, 152, 0)", "rgb(239, 108, 0)", "rgb(230, 81, 0)", "rgb(255, 87, 34)", "rgb(255, 87, 34)", "rgb(244, 81, 30)", "rgb(230, 74, 25)", "rgb(216, 67, 21)", "rgb(191, 54, 12)", "rgb(255, 61, 0)", "rgb(221, 44, 0)", "rgb(121, 85, 72)", "rgb(161, 136, 127)", "rgb(141, 110, 99)", "rgb(121, 85, 72)", "rgb(109, 76, 65)", "rgb(93, 64, 55)", "rgb(78, 52, 46)", "rgb(62, 39, 35)", "rgb(158, 158, 158)", "rgb(117, 117, 117)", "rgb(97, 97, 97)", "rgb(66, 66, 66)", "rgb(33, 33, 33)", "rgb(96, 125, 139)", "rgb(120, 144, 156)", "rgb(96, 125, 139)", "rgb(84, 110, 122)", "rgb(69, 90, 100)", "rgb(55, 71, 79)", "rgb(38, 50, 56)", "rgb(0, 0, 0)"]
@@ -16,13 +17,15 @@ function randomColor() {
     return color
 }
 
-class Node {
+class Node extends EventEmitter {
     static container = document.getElementById('nodes');
     static id = 1;
     constructor(text, isroot) {
+        super()
         this.children = []
         this.text = text || '双击开始'
         this.container = Node.container
+        this.relayout = this.relayout.bind(this)
         this.id = Node.id
         Node.id += 1
         this.isroot = !!isroot
@@ -30,19 +33,33 @@ class Node {
             this.elem = this.createElement(this.text)
             this.setBounding()
         }
-        this.initEdge()
+        // this.on('change', this.relayout)
     }
     getBoundingClientRect() {
         return this.elem.getBoundingClientRect()
     }
     getEdgeP() {
-        return [this.left, this.bottom]
+        const { right, top, height, bottom } = this.getBoundingClientRect()
+        const size = this.size
+        if (this.isroot) {
+            return [right, top + height / 2]
+        }
+        return [right, bottom + size + 2]
     }
     getEdgeC() {
-        return [this.right, this.bottom]
+        const { left, bottom } = this.getBoundingClientRect()
+        const size = this.size
+        return [left, bottom + this.size + 2]
     }
-    initEdge() {
-
+    relayout() {
+        if (this.isdata) {
+            return
+        }
+        this.setBounding()
+        if (this.isroot) {
+            return
+        }
+        this.parent.relayout()
     }
     setBounding() {
         const {
@@ -96,19 +113,25 @@ class Node {
             n.root = n
             n.level = 1
             n.data = this
-            n.color = randomColor()
         } else {
             n = new Node(text)
             n.level = this.level + 1
             n.root = this.root
+            n.parent = this
             n.data = this.data
             n.color = this.color
-
             n.edge = new Edge(this, n)
+            this.data.addNode(n)
         }
-        n.width = Math.max(10 - n.level, 2)
+        if (this.isroot) {
+            n.color = randomColor()
+        } else {
+            n.color = this.color
+        }
+        n.size = Math.max(10 - n.level, 2)
         n.parent = this
         this.children.push(n)
+        n.emit('change')
         return n
     }
     moveBy(x, y) {
@@ -147,6 +170,7 @@ class Node {
             this.t_bottom = this.bottom
             this.t_left = this.left
         }
+        this.emit('change')
     }
     resize() {
         this.right = this.left + this.width
@@ -164,7 +188,11 @@ class Node {
         elem.textContent = text
         elem.setAttribute('id', `node-${this.id}`)
         this.container.appendChild(elem)
+        this.initEvent(elem)
         return elem
+    }
+    initEvent(elem) {
+        this.events = new ElemEvent(elem, this)
     }
     render() {
         if (this.children.length) {
@@ -175,30 +203,133 @@ class Node {
         this.setBounding()
     }
 }
+class ElemEvent {
+    constructor(elem, node) {
+        this.elem = elem
+        this.node = node
+        this.bindHander()
+        this.events = [
+            ['click', this.onClick],
+            ['dblclick', this.ondblClick],
+            ['input', this.onInput],
+            ['mousedown', this.onMouseDown]
+        ]
+        this.cancelEvent = this.initEvent()
+    }
+    bindHander() {
+        this.raf = this.raf.bind(this)
+        this.onClick = this.onClick.bind(this)
+        this.onBlur = this.onBlur.bind(this)
+        this.ondblClick = this.ondblClick.bind(this)
+        this.onInput = this.onInput.bind(this)
+        this.onMouseDown = this.onMouseDown.bind(this)
+        this.onMouseUp = this.onMouseUp.bind(this)
+        this.onDocumentMove = this.onDocumentMove.bind(this)
+    }
+    initEvent() {
+        let elem = this.elem
+        return [...this.events.map(item => {
+            elem.addEventListener(item[0], item[1], false)
+            return () => {
+                elem.removeEventListener(item[0], item[1])
+            }
+        }), (() => {
+            document.addEventListener('click', this.onBlur, false)
+            return () => {
+                document.removeEventListener('click', this.onBlur)
+            }
+        })(), (() => {
+            document.addEventListener('mouseup', this.onMouseUp, false)
+            return () => {
+                document.removeEventListener('mouseup', this.onMouseUp)
+            }
+        })()]
+    }
+    destroy() {
+        this.cancelEvent.forEach(cancel => (cancel()))
+    }
+    focus() {
+        this.elem.classList.add('is-focus')
+        this.elem.focus()
+    }
+    blur() {
+        this.elem.classList.remove('is-focus')
+    }
+    onClick() {
+        this.focus()
+    }
+    onBlur(e) {
+        if (e.target !== this.elem) {
+            this.blur()
+            this.elem.contentEditable = false
+        }
+    }
+    ondblClick() {
+        this.elem.contentEditable = true
+        this.focus()
+    }
+    onInput() {
+        this.node.emit('change')
+    }
+    onMouseDown(e) {
+        document.addEventListener('mousemove', this.onDocumentMove, false)
+        this.startX = this.node.left
+        this.startY = this.node.top
+        this.rafid = 0
+        this.moveid = 0
+        this.movementX = 0
+        this.movementY = 0
+        this.raf()
+        e.stopPropagation()
+    }
+    raf() {
+        this.rafid += 1
+        requestAnimationFrame(this.raf)
+    }
+    onDocumentMove(e) {
+        this.movementX += e.movementX
+        this.movementY += e.movementY
+        if (this.moveid < this.rafid) {
+            console.log(this.moveid)
+            this.node.moveBy(this.movementX, this.movementY)
+            this.rafid = 0
+            this.moveid = 0
+            this.movementX = 0
+            this.movementY = 0
+        }
+        this.moveid = this.rafid
+    }
+    onMouseUp(e) {
+        document.removeEventListener('mousemove', this.onDocumentMove)
+        if (!this.node.isroot) {
+            if (this.startX !== undefined && this.startY !== undefined) {
+                this.node.moveTo(this.startX, this.startY)
+            }
+        }
+        e.stopPropagation()
+    }
+}
 class Edge {
-    constructor({ parent, child }) {
+    constructor(parent, child) {
         this.parent = parent
         this.child = child
     }
     setCanvas(canvas) {
         this.canvas = canvas
     }
-    moveTo(p0, p1) {
-
-    }
     renderArc() {
         let p0 = this.parent.getEdgeP(),
-            p3 = this.getEdgeC(),
-            color = this.color,
-            startWidth = this.parent.width,
-            endWidth = this.width,
+            p3 = this.child.getEdgeC(),
+            color = this.child.color,
+            startWidth = this.parent.size,
+            endWidth = this.child.size,
             p1, p2
-        if (p0[0] < p3[0]) {
-            p1 = [p0[0] + 100, p0[1]]
-            p2 = [p3[0] - 100, p3[1]]
+        if (p0[0] > p3[0]) {
+            p1 = [p0[0] - 40, p0[1]]
+            p2 = [p3[0] + 40, p3[1]]
         } else {
-            p1 = [p0[0] - 100, p0[1]]
-            p2 = [p3[0] + 100, p3[1]]
+            p1 = [p0[0] + 40, p0[1]]
+            p2 = [p3[0] - 40, p3[1]]
         }
         this.canvas.drawBezier({
             p0,
@@ -211,10 +342,10 @@ class Edge {
         })
     }
     renderLine() {
-        let p0 = this.getEdgeP(),
-            p1 = this.getEdgeC(),
-            color = this.color,
-            width = this.width
+        let p0 = this.child.getEdgeP(),
+            p1 = this.child.getEdgeC(),
+            color = this.child.color,
+            width = this.child.size
         this.canvas.drawLine({
             p0,
             p1,
@@ -223,12 +354,9 @@ class Edge {
         })
     }
     render() {
-        this.p0 = p0
-        this.p1 = p1
-        this.color = color
-        this.startWidth = startWidth
-        this.endWidth = endWidth
-        this.width = width
+        let t = Date.now()
+        document.title = `${1000/ (t-this.t)}fps`
+        this.t = t
         this.renderArc()
         this.renderLine()
     }
@@ -241,7 +369,7 @@ class Canvas {
         canvas.height = document.body.offsetHeight * N
         this.ctx = canvas.getContext('2d')
         this.shapes = []
-        const { clear, drawLine, drawBezier } = makeLines(thi.ctx)
+        const { clear, drawLine, drawBezier } = makeLines(this.ctx)
         this.clear = clear
         this.drawLine = drawLine
         this.drawBezier = drawBezier
@@ -250,13 +378,11 @@ class Canvas {
         this.render()
     }
     addChild(shape) {
-        this.shapes.push(shapes)
+        this.shapes.push(shape)
         shape.setCanvas(this)
     }
     render() {
-        this.shapes.render()
-        this.clear()
-        requestAnimationFrame(this.render)
+        this.shapes.forEach(s => s.render())
     }
 }
 class Data extends Node {
@@ -268,6 +394,22 @@ class Data extends Node {
         this.all = []
 
         this.parse(data)
+
+        this.raf = this.raf.bind(this)
+        this.raf()
+    }
+    raf() {
+        this.rafcall && this.rafcall()
+        this.rafcall = null
+        requestAnimationFrame(this.raf)
+    }
+    addNode(node) {
+        this.all.push(node)
+        node.on('change', () => {
+            this.rafcall = () => {
+                this.emit('change')
+            }
+        })
     }
     parseNode(d, parent) {
         let n = parent.addChild(d.text)
@@ -287,14 +429,24 @@ class Data extends Node {
             })
         }
     }
-    getNodeEdges(node){
-        return [...node.children.map(child => (this.getNodeEdges(child))), node.edge]
+    getNodeEdges(node) {
+        if (!node.children.length) {
+            return node.edge
+        }
+        let edges = []
+        node.children.forEach(child => {
+            edges = edges.concat(this.getNodeEdges(child))
+        })
+        if (node.isroot) {
+            return edges
+        }
+        return [...edges, node.edge]
     }
-    getEdges(){
+    getEdges() {
         var edges = []
         this.children.forEach(child => {
-            if(child)
-            edges = [...edges, ...this.getNodeEdges(child)]
+            if (child)
+                edges = [...edges, ...this.getNodeEdges(child)]
         })
         return edges
     }
@@ -312,4 +464,46 @@ let {
     t_top
 } = d.children[0]
 d.moveTo(document.body.offsetWidth / 2 - t_width / 2 - t_left, document.body.offsetHeight / 2 - t_height / 2 - t_top)
+
+d.on('change', function() {
+    renderEdge(d)
+})
+renderEdge(d)
+
+function renderEdge(d) {
+    var c = new Canvas()
+    d.getEdges().forEach(e => c.addChild(e))
+    c.render()
+}
 window.d = d
+
+let update = null,
+    mmx = 0,
+    mmy = 0
+re()
+
+function re() {
+    update && update()
+    update = null
+    requestAnimationFrame(re)
+}
+
+function documentmove(e) {
+    mmx += e.movementX
+    mmy += e.movementY
+    update = () => {
+        console.log(mmx, mmy)
+        d.moveBy(mmx, mmy)
+        mmx = mmy = 0
+    }
+}
+document.addEventListener('mousedown', () => {
+    document.body.style.cursor = 'pointer'
+    document.addEventListener('mousemove', documentmove, false)
+}, false)
+document.addEventListener('mouseup', () => {
+    document.body.style.cursor = 'default'
+    document.removeEventListener('mousemove', documentmove)
+}, false)
+
+// console.log(d.getEdges())
