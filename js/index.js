@@ -283,7 +283,6 @@ class ElemEvent {
         this.movementX += e.movementX
         this.movementY += e.movementY
         if (this.moveid < this.rafid) {
-            console.log(this.moveid)
             this.node.moveBy(this.movementX, this.movementY)
             this.rafid = 0
             this.moveid = 0
@@ -401,7 +400,7 @@ class Edge {
         for(let i = 0; i < Edge.tasks.length; i++){
             item = Edge.tasks[i]
             if(item.id == id && item.t - t < 13){
-                console.log('舍弃')
+                // console.log('舍弃')
                 // 舍弃当前帧
                 return Edge.rafRender()
             }
@@ -410,7 +409,7 @@ class Edge {
         func()
         const b = Date.now() - a
         if(b > 5){
-            console.log('ms: ' + b)
+            // console.log('ms: ' + b)
         }
     }
     makeTask(){
@@ -474,49 +473,7 @@ class Edge {
         setTimeout(Edge.rafRender)
     }
 }
-// class Canvas {
-//     constructor() {
-//         this.canvas = document.createElement('canvas')
-//         this.realCanvas = document.getElementById('canvas')
-//         this.ctx = this.initCanvas(this.canvas)
-//         this.realCtx = this.initCanvas(this.realCanvas)
-//         this.shapes = []
-//         const { clear, drawLine, drawBezier } = makeLines(this.ctx)
-//         this.clear = clear
-//         this.drawLine = drawLine
-//         this.drawBezier = drawBezier
 
-//         this.render = this.render.bind(this)
-//         this.render()
-//         this.realRender = this.realRender.bind(this)
-//         this.realRender()
-//     }
-//     initCanvas(canvas){
-//         const N = 2
-//         canvas.width = document.body.offsetWidth * N
-//         canvas.height = document.body.offsetHeight * N
-//         return canvas.getContext('2d')
-//     }
-//     addChild(shape) {
-//         this.shapes.push(shape)
-//         shape.setCanvas(this)
-//     }
-//     render(isfirst) {
-//         if (!isfirst) {
-//             this.t = Date.now()
-//         }
-//         if (Date.now() - this.t > 500) {
-//             return
-//         }
-//         this.clear()
-//         this.shapes.forEach(s => s.render())
-//         requestAnimationFrame(this.render)
-//     }
-//     realRender(){
-//         this.realCtx.drawImage(this.canvas, 0, 0)
-//         requestAnimationFrame(this.realRender)
-//     }
-// }
 class Data extends Node {
     constructor(data) {
         super()
