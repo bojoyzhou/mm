@@ -13,11 +13,10 @@
     }
     .node{
         position: absolute;
-        padding: 12px 18px 6px;
-        line-height: 1.6;
+        padding: 1px;
         cursor: pointer;
         user-select: none;
-        transition: left .2s, top .2s;
+        /*transition: left .2s, top .2s;*/
     }
     .node.is-focus{
         border-radius: 2px;
@@ -26,7 +25,8 @@
     .root{
         box-shadow: 0 1px 8px rgba(0,0,0,.2);
         border-radius: 5px;
-        border: none;
+        background: #fff;
+        padding: 10px;
     }
     .node--active{
         box-shadow: 0 0 8px #29B6F6;
@@ -50,7 +50,7 @@
 </head>
 
 <body>
-    <canvas id="canvas"></canvas>
+    <div id="canvas"></div>
     <div id="area" class="area"></div>
     <div id="nodes" class="nodes"></div>
     <script type="text/javascript" src="index.bundle.js"></script>
