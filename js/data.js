@@ -1,4 +1,4 @@
-var data = [{
+var data = {
     "text": "双击开始",
     "children": [{
         "text": "node 1",
@@ -40,6 +40,6 @@ var data = [{
         "text": "node 4",
         "children": []
     }]
-}]
+}
 
 export default data
