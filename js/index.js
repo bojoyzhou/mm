@@ -89,8 +89,6 @@ class Node extends EventEmitter {
             n.parent = this
             n.data = this.data
             n.color = this.color
-                // n.edge = new Edge(this, n)
-                // this.data.addNode(n)
         }
         if (this.isroot) {
             n.color = randomColor()
@@ -120,6 +118,7 @@ class Node extends EventEmitter {
     setPos(left, top) {
         this.left = left
         this.top = top
+        this.render()
     }
     createElement(text) {
         let elem = document.createElement('div')
@@ -161,8 +160,8 @@ class Node extends EventEmitter {
         this.t_top = child.t_top
         for (let i = 1; i < this.children.length; i++) {
             child = this.children[i]
-            child.moveTo(left, top + t_height + PH)
             child.layout()
+            child.moveTo(left, top + t_height + PH)
             top = top + t_height + PH
             t_height = child.t_height
         }
@@ -188,4 +187,5 @@ var frameManager = new FrameManage()
 Node.frameManager = frameManager
 var rootNode = Node.parse(data)
 rootNode.layout()
+rootNode.moveBy(500, 400)
 console.log(window.rootNode = rootNode)
