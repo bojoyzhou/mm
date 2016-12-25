@@ -46,13 +46,17 @@
         left: 0;
         top: 0;
     }
+    .none{
+        left: -100%;
+    }
     </style>
 </head>
 
 <body>
     <div id="canvas"></div>
     <div id="area" class="area"></div>
-    <div id="nodes" class="nodes"></div>
+    <canvas id="nodes" class="nodes none"></canvas>
+    <canvas id="realCanvas" class="nodes"></canvas>
     <script type="text/javascript" src="index.bundle.js"></script>
 </body>
 
