@@ -36,10 +36,15 @@ class FrameManage {
         this.canvas.width = document.body.offsetWidth
         this.canvas.height = document.body.offsetHeight
         this.ctx = this.canvas.getContext('2d')
+        this.oriCtx = this.oriCanvas.getContext('2d')
         this.run = this.run.bind(this)
         this.run()
     }
-    regist(node){
+    clear(ctx) {
+        const { width, height } = ctx.canvas
+        ctx.clearRect(0, 0, width, height)
+    }
+    regist(node) {
         this.nodes.push(node)
     }
     add(task) {
@@ -55,14 +60,28 @@ class FrameManage {
                 return false
             }
         }
-        task.func()
-        if(this.tasks[0] && this.tasks[0].t - task.t < t - this.t){
-            this.execute(t, 1)
+        // if(!isroll){
+        //     this.clear()
+        // }
+        // task.func()
+        if (this.tasks[0] && this.tasks[0].t - task.t < t - this.t) {
+            // this.execute(t, 1)
+            return
         }
+        this.clear(this.ctx)
+        this.clear(this.oriCtx)
+        this.nodes.forEach(node => {
+            node.renderDeep()
+        })
         return true
     }
     run(t) {
-        this.execute(t) && this.ctx.drawImage(this.oriCanvas, 0, 0)
+        this.clear(this.oriCtx)
+        this.nodes.forEach(node => {
+            node.renderDeep()
+        })
+        this.clear(this.ctx)
+        this.ctx.drawImage(this.oriCanvas, 0, 0)
         requestAnimationFrame(this.run)
         this.t = t
     }
@@ -73,7 +92,7 @@ class Node extends EventEmitter {
     static id = 1;
     static padding = 4;
     static frameManager = null;
-    static setCanvas(){
+    static setCanvas() {
         Node.canvas = document.getElementById('nodes')
         Node.canvas.width = document.body.offsetWidth
         Node.canvas.height = document.body.offsetHeight
@@ -93,12 +112,61 @@ class Node extends EventEmitter {
         this.ctx.font = `600 ${this.fontSize}px Arial`
         this.ctx.fillStyle = "rgba(0, 0, 0, .75)"
         this.ctx.textAlign = "left"
-        this.height = 16
+        this.height = 20
         this.left = 0
         this.top = 0
         this.size = 10
-        this.width = this.ctx.measureText(this.text).width + Node.padding * 2
+        this.width = this.getWidth()
         this.applyStyle = this.applyStyle.bind(this)
+
+        this.isover = false
+        this.isdown = false
+        this.isdragstart = false
+        this.bindEvent()
+    }
+    bindEvent(){
+        this.on('mouseover', this.onMouseOver)
+        this.on('mouseleave', this.onMouseLeave)
+        this.on('mouseup', this.onMouseUp)
+        this.on('mousedown', this.onMouseDown)
+        this.on('drag', this.onDrag)
+        this.on('dragstart', this.onDragStart)
+        this.on('dragdrop', this.onDragDrop)
+    }
+    onMouseOver(){
+        this.isover = true
+    }
+    onMouseLeave(){
+        this.isover = false
+    }
+    onMouseUp(){
+        this.isdown = false
+    }
+    onMouseDown(){
+        this.isdown = true
+    }
+    onDrag(e){
+        console.log(e.movementX, e.movementY)
+        this.moveBy(e.movementX, e.movementY)
+    }
+    onDragStart(e){
+        this.isdragstart = true
+    }
+    onDragDrop(){
+        this.isdragstart = false
+        this.isdown = false
+    }
+    getWidth() {
+        this.ctx.font = `600 ${this.fontSize}px Arial`
+        this.ctx.fillStyle = "rgba(0, 0, 0, .75)"
+        this.ctx.textAlign = "left"
+        return this.ctx.measureText(this.text).width + Node.padding * 2
+    }
+    setText(text) {
+        this.text = text
+        const width = this.getWidth()
+        this.children.forEach(child => (child.moveBy(width - this.width, 0)))
+        this.width = width
     }
     getEdgeP() {
         const { left, top, height, width } = this
@@ -108,13 +176,13 @@ class Node extends EventEmitter {
         if (this.isroot) {
             return [right - width / 4, top + height / 2 + size / 2]
         }
-        return [right + 2, bottom + this.size + 1]
+        return [right + 2, bottom + this.size / 2]
     }
     getEdgeC() {
         const { left, top, height } = this
         const bottom = top + height
         const size = this.size
-        return [left - 2, bottom + this.size + 1]
+        return [left - 2, bottom + this.size / 2]
     }
     addChild(text) {
         let n
@@ -185,6 +253,9 @@ class Node extends EventEmitter {
             p1 = [p0[0] + 70, p0[1]]
             p2 = [p3[0] - 40, p3[1]]
         }
+        if (this.parent.isroot) {
+            p1 = p0
+        }
         const ctx = this.ctx
         ctx.beginPath()
         ctx.lineWidth = width
@@ -226,19 +297,46 @@ class Node extends EventEmitter {
     }
     applyStyle() {
         const ctx = this.ctx
+        if (this.isroot) {
+            this.renderBox()
+        }
+        if(!this.isroot){
+            this.renderArc()
+            this.renderLine()
+        }
         ctx.font = `600 ${this.fontSize}px Arial`
         ctx.fillStyle = "rgba(0, 0, 0, .75)"
         ctx.textAlign = "left"
         ctx.fillText(this.text, this.left + Node.padding, this.top + this.fontSize)
-        if(this.isroot){
-            return
-        }
-        this.renderArc()
-        this.renderLine()
+    }
+    renderBox() {
+        const round = 5
+        const ctx = this.ctx
+        let { left, top, width, height } = this
+        left -= 10
+        width += 20
+        top -= 10
+        height += 20
+        ctx.shadowColor = "rgba(0, 0, 0, .5)"
+        ctx.shadowBlur = 10
+        ctx.fillStyle = "white"
+        ctx.beginPath()
+        ctx.moveTo(left + round, top)
+        ctx.lineTo(left + width - round, top)
+        ctx.quadraticCurveTo(left + width, top, left + width, top + round)
+        ctx.lineTo(left + width, top + height - round)
+        ctx.quadraticCurveTo(left + width, top + height, left + width - round, top + height)
+        ctx.lineTo(left + round, top + height)
+        ctx.quadraticCurveTo(left, top + height, left, top + height - round)
+        ctx.lineTo(left, top + round)
+        ctx.quadraticCurveTo(left, top, left + round, top)
+        ctx.fill()
+        ctx.shadowColor = "none"
+        ctx.shadowBlur = 0
     }
     renderDeep() {
-        this.render()
         this.children.forEach(child => child.renderDeep())
+        this.applyStyle()
     }
     render() {
         this.frameManager.add(new Task({
@@ -256,19 +354,23 @@ class Node extends EventEmitter {
         let child = this.children[0]
 
         child.layout()
-        let { top, t_height, left } = child,
-            ftop = top
+        let { top, t_height, left, height } = child,
+        ftop = top
         this.t_top = child.t_top
         for (let i = 1; i < this.children.length; i++) {
             child = this.children[i]
             child.layout()
-            child.moveTo(left, top + t_height + PH)
-            top = top + t_height + PH
+            top = top + t_height / 2 + height / 2 + child.t_height / 2 - this.height / 2 + PH
+            child.moveTo(left, top)
             t_height = child.t_height
+            height = child.height
         }
         let ltop = top + t_height
         this.t_height = ltop - this.t_top
         this.setPos(left - PW - this.width, (ftop + ltop) / 2 - this.height / 2)
+    }
+    mapCoor() {
+        return [this.left, this.top, this.left + this.width, this.top + this.height]
     }
     static parseNode(data, parent) {
         let n = parent.addChild(data.text)
@@ -282,17 +384,60 @@ class Node extends EventEmitter {
         return nodes.concat.apply(nodes, data.children.map(d => (Node.parseNode(d, n))))
     }
 }
-
 var frameManager = new FrameManage()
 Node.frameManager = frameManager
 Node.setCanvas()
 var nodes = Node.parse(data)
-console.log(nodes)
-nodes.forEach(node => {
-    frameManager.regist(node)
-})
 var rootNode = nodes[0]
+frameManager.regist(rootNode)
 rootNode.layout()
 rootNode.moveBy(500, 400)
+rootNode.renderDeep()
 console.log(window.rootNode = rootNode)
 window.rootNode = rootNode
+console.log(rootNode.mapCoor)
+
+document.body.addEventListener('mousedown', e => {
+    const { clientX, clientY } = e
+    nodes.map(node => {
+        let coor = node.mapCoor()
+        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
+            node.emit('mousedown')
+        }
+    })
+})
+document.body.addEventListener('mouseup', e => {
+    const { clientX, clientY } = e
+    nodes.map(node => {
+        let coor = node.mapCoor()
+        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
+            node.emit('mouseup')
+        }
+        if(node.isdragstart){
+            node.emit('dragdrop', e)
+        }
+    })
+})
+document.body.addEventListener('mousemove', e => {
+    const { clientX, clientY } = e
+    let pointer = false
+    nodes.map(node => {
+        let coor = node.mapCoor()
+        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
+            pointer = true
+            !node.isover && node.emit('mouseover')
+        } else {
+            node.isover && node.emit('mouseleave')
+        }
+        if(node.isdown && !node.isdragstart){
+            node.emit('dragstart', e)
+        }else if(node.isdown){
+            node.emit('drag', e)
+        }
+    })
+    if(pointer){
+        document.body.style.cursor = 'pointer'
+    }else{
+        document.body.style.cursor = 'default'
+    }
+})
