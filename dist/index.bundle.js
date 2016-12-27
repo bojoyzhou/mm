@@ -246,16 +246,38 @@
 	        _this.top = 0;
 	        _this.size = 10;
 	        _this.width = _this.getWidth();
+	        _this.isleft = false;
 	        _this.applyStyle = _this.applyStyle.bind(_this);
 
 	        _this.isover = false;
 	        _this.isdown = false;
 	        _this.isdragstart = false;
 	        _this.bindEvent();
+
+	        _this.startLeft = _this.left;
+	        _this.startTop = _this.top;
+	        _this.startTime = 0;
+	        _this.duration = 300;
+	        _this.beforeDragX = 0;
+	        _this.beforeDragY = 0;
 	        return _this;
 	    }
 
 	    (0, _createClass3.default)(Node, [{
+	        key: 'getPos',
+	        value: function getPos() {
+	            var r = (Date.now() - this.startTime) / this.duration,
+	                left = void 0,
+	                top = void 0;
+	            if (r > 1) {
+	                left = this.left;
+	                top = this.top;
+	            } else {
+	                left = this.startLeft + (this.left - this.startLeft) * r, top = this.startTop + (this.top - this.startTop) * r;
+	            }
+	            return { left: left, top: top };
+	        }
+	    }, {
 	        key: 'bindEvent',
 	        value: function bindEvent() {
 	            this.on('mouseover', this.onMouseOver);
@@ -287,21 +309,84 @@
 	            this.isdown = true;
 	        }
 	    }, {
-	        key: 'onDrag',
-	        value: function onDrag(e) {
-	            console.log(e.movementX, e.movementY);
-	            this.moveBy(e.movementX, e.movementY);
-	        }
-	    }, {
 	        key: 'onDragStart',
 	        value: function onDragStart(e) {
+	            this.beforeDragX = this.left;
+	            this.beforeDragY = this.top;
+	            this.beforeDragParent = this.parent;
+	            this.beforeDragIndex = this.index;
 	            this.isdragstart = true;
+
+	            var pos = this.pos = [[this.beforeDragX, this.beforeDragY, this]];
+
+	            var prev = this.prev(),
+	                next = this.next();
+	            while (prev) {
+	                pos.unshift([prev.left, prev.top, prev]);
+	                prev = prev.prev();
+	            }
+	            while (next) {
+	                pos.push([next.left, next.top, next]);
+	                next = next.next();
+	            }
+	        }
+	    }, {
+	        key: 'onDrag',
+	        value: function onDrag(e) {
+	            var _this2 = this;
+
+	            this.moveBy(e.movementX, e.movementY);
+	            if (this.isroot) {
+	                return;
+	            }
+	            if (this.parent && this.parent.isroot && Math.abs(this.left - this.beforeDragX) > Math.abs(this.beforeDragX - this.parent.left)) {
+	                console.log("over");
+	            }
+	            var children = this.parent.children,
+	                index = this.index;
+	            var a = children.slice(0).sort(function (a, b) {
+	                return a.top > b.top;
+	            }).map(function (child, idx) {
+	                if (child.index == index) {
+	                    return [child.text, 'ccc'].join(', ');
+	                }
+	                child.moveTo.apply(child, _this2.pos[idx]);
+	                return [child.text, _this2.pos[idx]].join(', ');
+	            });
 	        }
 	    }, {
 	        key: 'onDragDrop',
 	        value: function onDragDrop() {
 	            this.isdragstart = false;
 	            this.isdown = false;
+	            this.parent.children.sort(function (a, b) {
+	                return a.top > b.top;
+	            });
+	            this.parent.children.forEach(function (child, idx) {
+	                child.index = idx;
+	            });
+	            var next = this.next(),
+	                prev = this.prev(),
+	                parent = this.parent;
+	            if (next) {
+	                var left = next.left,
+	                    t_top = next.t_top;
+
+	                this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2);
+	            } else if (prev) {
+	                var _left = prev.left,
+	                    _t_top = prev.t_top,
+	                    t_height = prev.t_height;
+
+	                this.moveTo(_left, _t_top + t_height + PH);
+	            } else if (parent) {
+	                var _left2 = parent.left,
+	                    top = parent.top;
+
+	                this.moveTo(_left2 + parent.width + PW, top);
+	            }
+	            // this.stopAnimate()
+	            this.root.layout();
 	        }
 	    }, {
 	        key: 'getWidth',
@@ -314,21 +399,23 @@
 	    }, {
 	        key: 'setText',
 	        value: function setText(text) {
-	            var _this2 = this;
+	            var _this3 = this;
 
 	            this.text = text;
 	            var width = this.getWidth();
 	            this.children.forEach(function (child) {
-	                return child.moveBy(width - _this2.width, 0);
+	                return child.moveBy(width - _this3.width, 0);
 	            });
 	            this.width = width;
 	        }
 	    }, {
 	        key: 'getEdgeP',
 	        value: function getEdgeP() {
-	            var left = this.left,
-	                top = this.top,
-	                height = this.height,
+	            var _getPos = this.getPos(),
+	                left = _getPos.left,
+	                top = _getPos.top;
+
+	            var height = this.height,
 	                width = this.width;
 
 	            var right = left + width,
@@ -342,9 +429,11 @@
 	    }, {
 	        key: 'getEdgeC',
 	        value: function getEdgeC() {
-	            var left = this.left,
-	                top = this.top,
-	                height = this.height;
+	            var _getPos2 = this.getPos(),
+	                left = _getPos2.left,
+	                top = _getPos2.top;
+
+	            var height = this.height;
 
 	            var bottom = top + height;
 	            var size = this.size;
@@ -374,8 +463,25 @@
 	            }
 	            n.size = Math.max(10 - n.level, 2);
 	            n.parent = this;
+	            n.index = this.children.length;
 	            this.children.push(n);
 	            return n;
+	        }
+	    }, {
+	        key: 'prev',
+	        value: function prev() {
+	            if (this.index >= 1) {
+	                return this.parent.children[this.index - 1];
+	            }
+	            return null;
+	        }
+	    }, {
+	        key: 'next',
+	        value: function next() {
+	            if (this.index < this.parent.children.length - 1) {
+	                return this.parent.children[this.index + 1];
+	            }
+	            return null;
 	        }
 	    }, {
 	        key: 'resize',
@@ -397,18 +503,31 @@
 	    }, {
 	        key: 'moveTo',
 	        value: function moveTo(left, top) {
-	            var _this3 = this;
+	            var _this4 = this;
 
 	            this.children.forEach(function (child) {
-	                return child.moveBy(left - _this3.left, top - _this3.top);
+	                return child.moveBy(left - _this4.left, top - _this4.top);
 	            });
 	            this.setPos(left, top);
 	        }
 	    }, {
+	        key: 'stopAnimate',
+	        value: function stopAnimate() {
+	            this.startLeft = this.left;
+	            this.startTop = this.top;
+	            this.startTime = Date.now();
+	        }
+	    }, {
 	        key: 'setPos',
 	        value: function setPos(left, top) {
+	            if (Date.now() - this.startTime > 300) {
+	                this.startLeft = this.left;
+	                this.startTop = this.top;
+	                this.startTime = Date.now();
+	            }
 	            this.left = left;
 	            this.top = top;
+	            this.t_top = this.top + this.height / 2 - this.t_height / 2;
 	        }
 	    }, {
 	        key: 'createElement',
@@ -433,9 +552,9 @@
 	                width = this.size,
 	                p1 = void 0,
 	                p2 = void 0;
-	            if (p0[0] > p3[0]) {
-	                p1 = [p0[0] - 40, p0[1]];
-	                p2 = [p3[0] + 70, p3[1]];
+	            if (this.isleft) {
+	                p1 = [p0[0] - 70, p0[1]];
+	                p2 = [p3[0] + 40, p3[1]];
 	            } else {
 	                p1 = [p0[0] + 70, p0[1]];
 	                p2 = [p3[0] - 40, p3[1]];
@@ -489,6 +608,10 @@
 	    }, {
 	        key: 'applyStyle',
 	        value: function applyStyle() {
+	            var _getPos3 = this.getPos(),
+	                left = _getPos3.left,
+	                top = _getPos3.top;
+
 	            var ctx = this.ctx;
 	            if (this.isroot) {
 	                this.renderBox();
@@ -500,16 +623,19 @@
 	            ctx.font = '600 ' + this.fontSize + 'px Arial';
 	            ctx.fillStyle = "rgba(0, 0, 0, .75)";
 	            ctx.textAlign = "left";
-	            ctx.fillText(this.text, this.left + Node.padding, this.top + this.fontSize);
+	            ctx.fillText(this.text, left + Node.padding, top + this.fontSize);
 	        }
 	    }, {
 	        key: 'renderBox',
 	        value: function renderBox() {
 	            var round = 5;
 	            var ctx = this.ctx;
-	            var left = this.left,
-	                top = this.top,
-	                width = this.width,
+
+	            var _getPos4 = this.getPos(),
+	                left = _getPos4.left,
+	                top = _getPos4.top;
+
+	            var width = this.width,
 	                height = this.height;
 
 	            left -= 10;
@@ -536,6 +662,9 @@
 	    }, {
 	        key: 'renderDeep',
 	        value: function renderDeep() {
+	            if (this.display === false) {
+	                return;
+	            }
 	            this.children.forEach(function (child) {
 	                return child.renderDeep();
 	            });
@@ -549,6 +678,11 @@
 	                func: this.applyStyle,
 	                t: Date.now()
 	            }), this);
+	        }
+	    }, {
+	        key: 'scrollIntoCenter',
+	        value: function scrollIntoCenter() {
+	            this.moveTo(this.canvas.width / 2, this.canvas.height / 2);
 	        }
 	    }, {
 	        key: 'layout',
@@ -566,7 +700,7 @@
 	                t_height = _child.t_height,
 	                left = _child.left,
 	                height = _child.height,
-	                ftop = top;
+	                ftop = child.t_top;
 
 	            this.t_top = child.t_top;
 	            for (var i = 1; i < this.children.length; i++) {
@@ -574,25 +708,46 @@
 	                child.layout();
 	                top = top + t_height / 2 + height / 2 + child.t_height / 2 - this.height / 2 + PH;
 	                child.moveTo(left, top);
-	                t_height = child.t_height;
 	                height = child.height;
+	                t_height = child.t_height;
 	            }
-	            var ltop = top + t_height;
-	            this.t_height = ltop - this.t_top;
-	            this.setPos(left - PW - this.width, (ftop + ltop) / 2 - this.height / 2);
+	            var bottom = top + t_height / 2 + height / 2;
+	            this.t_height = bottom - this.t_top;
+	            this.setPos(left - PW - this.width, (ftop + bottom) / 2 - this.height / 2);
 	        }
 	    }, {
 	        key: 'mapCoor',
 	        value: function mapCoor() {
 	            return [this.left, this.top, this.left + this.width, this.top + this.height];
 	        }
+	    }, {
+	        key: 'hide',
+	        value: function hide() {
+	            this.display = false;
+	        }
+	    }, {
+	        key: 'show',
+	        value: function show() {
+	            this.display = true;
+	        }
+	    }, {
+	        key: 'clone',
+	        value: function clone() {
+	            var n = new Node(this.text, this.isroot);
+	            for (var i in this) {
+	                if (this.hasOwnProperty(i)) {
+	                    n[i] = this[i];
+	                }
+	            }
+	            return n;
+	        }
 	    }], [{
 	        key: 'parseNode',
 	        value: function parseNode(data, parent) {
 	            var n = parent.addChild(data.text);
-	            return data.children.length && [n].concat((0, _toConsumableArray3.default)(data.children.map(function (d) {
+	            return data.children.length && [].concat((0, _toConsumableArray3.default)(data.children.map(function (d) {
 	                return Node.parseNode(d, n);
-	            }))) || n;
+	            })), [n]) || n;
 	        }
 	    }, {
 	        key: 'parse',
@@ -600,6 +755,7 @@
 	            var n = new Node(data.text, true);
 	            n.size = 10;
 	            n.level = 1;
+	            n.root = n;
 	            var nodes = [n];
 	            return nodes.concat.apply(nodes, data.children.map(function (d) {
 	                return Node.parseNode(d, n);
@@ -623,14 +779,14 @@
 	rootNode.layout();
 	rootNode.moveBy(500, 400);
 	rootNode.renderDeep();
-	console.log(window.rootNode = rootNode);
 	window.rootNode = rootNode;
-	console.log(rootNode.mapCoor);
 
+	var isdown = false;
 	document.body.addEventListener('mousedown', function (e) {
 	    var clientX = e.clientX,
 	        clientY = e.clientY;
 
+	    isdown = true;
 	    nodes.map(function (node) {
 	        var coor = node.mapCoor();
 	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
@@ -642,6 +798,7 @@
 	    var clientX = e.clientX,
 	        clientY = e.clientY;
 
+	    isdown = false;
 	    nodes.map(function (node) {
 	        var coor = node.mapCoor();
 	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
@@ -657,11 +814,14 @@
 	        clientY = e.clientY;
 
 	    var pointer = false;
+	    var isdrag = false;
 	    nodes.map(function (node) {
 	        var coor = node.mapCoor();
 	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
 	            pointer = true;
-	            !node.isover && node.emit('mouseover');
+	            if (!node.isover) {
+	                node.emit('mouseover');
+	            }
 	        } else {
 	            node.isover && node.emit('mouseleave');
 	        }
@@ -669,10 +829,14 @@
 	            node.emit('dragstart', e);
 	        } else if (node.isdown) {
 	            node.emit('drag', e);
+	            isdrag = true;
 	        }
 	    });
 	    if (pointer) {
 	        document.body.style.cursor = 'pointer';
+	    } else if (isdown && !isdrag) {
+	        document.body.style.cursor = 'pointer';
+	        rootNode.moveBy(e.movementX, e.movementY);
 	    } else {
 	        document.body.style.cursor = 'default';
 	    }

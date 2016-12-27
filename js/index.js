@@ -193,7 +193,7 @@ class Node extends EventEmitter {
             return
         }
         if (this.parent && this.parent.isroot && Math.abs(this.left - this.beforeDragX) > Math.abs(this.beforeDragX - this.parent.left)) {
-            console.log("over ")
+            console.log("over")
         }
         let children = this.parent.children,
             index = this.index
@@ -207,24 +207,30 @@ class Node extends EventEmitter {
             return [child.text, this.pos[idx]].join(', ')
         })
     }
-    insertBefore(n, prev) {
-        this.children.splice(n.index, 1)
-        this.children.splice(prev.index - 1, 0, n)
-        this.root.layout()
-    }
     onDragDrop() {
         this.isdragstart = false
         this.isdown = false
-        if (this.beforeDragParent == this.parent && this.beforeDragIndex == this.index) {
-            this.moveTo(this.beforeDragX, this.beforeDragY)
-        } else {
-            this.parent.children.sort((a, b) => {
-                return a.top > b.top
-            }).map((child, idx) => {
-                child.moveTo.apply(child, this.pos[idx])
-            })
-            this.root.layout()
+        this.parent.children.sort((a, b) => {
+            return a.top > b.top
+        })
+        this.parent.children.forEach((child, idx) => {
+            child.index = idx
+        })
+        let next = this.next(),
+            prev = this.prev(),
+            parent = this.parent
+        if(next){
+            let {left, t_top} = next
+            this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2)
+        }else if(prev){
+            let {left, t_top, t_height} = prev
+            this.moveTo(left, t_top + t_height + PH)
+        }else if(parent){
+            let {left, top} = parent
+            this.moveTo(left + parent.width + PW, top)
         }
+        // this.stopAnimate()
+        this.root.layout()
     }
     getWidth() {
         this.ctx.font = `600 ${this.fontSize}px Arial`
@@ -309,12 +315,20 @@ class Node extends EventEmitter {
         this.children.forEach(child => child.moveBy(left - this.left, top - this.top))
         this.setPos(left, top)
     }
-    setPos(left, top) {
+    stopAnimate(){
         this.startLeft = this.left
         this.startTop = this.top
         this.startTime = Date.now()
+    }
+    setPos(left, top) {
+        if(Date.now() - this.startTime > 300){
+            this.startLeft = this.left
+            this.startTop = this.top
+            this.startTime = Date.now()
+        }
         this.left = left
         this.top = top
+        this.t_top = this.top + this.height / 2 - this.t_height / 2
     }
     createElement(text) {
         let elem = document.createElement('div')
@@ -425,6 +439,9 @@ class Node extends EventEmitter {
         ctx.shadowBlur = 0
     }
     renderDeep() {
+        if(this.display === false){
+            return
+        }
         this.children.forEach(child => child.renderDeep())
         this.applyStyle()
     }
@@ -448,22 +465,37 @@ class Node extends EventEmitter {
 
         child.layout()
         let { top, t_height, left, height } = child,
-        ftop = top
+        ftop = child.t_top
         this.t_top = child.t_top
         for (let i = 1; i < this.children.length; i++) {
             child = this.children[i]
             child.layout()
             top = top + t_height / 2 + height / 2 + child.t_height / 2 - this.height / 2 + PH
             child.moveTo(left, top)
-            t_height = child.t_height
             height = child.height
+            t_height = child.t_height
         }
-        let ltop = top + t_height
-        this.t_height = ltop - this.t_top
-        this.setPos(left - PW - this.width, (ftop + ltop) / 2 - this.height / 2)
+        let bottom = top + t_height / 2 + height / 2
+        this.t_height = bottom - this.t_top
+        this.setPos(left - PW - this.width, (ftop + bottom) / 2 - this.height / 2)
     }
     mapCoor() {
         return [this.left, this.top, this.left + this.width, this.top + this.height]
+    }
+    hide(){
+        this.display = false
+    }
+    show(){
+        this.display = true
+    }
+    clone(){
+        var n = new Node(this.text, this.isroot)
+        for(let i in this){
+            if(this.hasOwnProperty(i)){
+                n[i] = this[i]
+            }
+        }
+        return n
     }
     static parseNode(data, parent) {
         let n = parent.addChild(data.text)
