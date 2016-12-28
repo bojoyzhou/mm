@@ -97,8 +97,10 @@ class FrameManage {
 class Node extends EventEmitter {
     static container = document.getElementById('nodes');
     static id = 1;
+    static nodes = [];
     static padding = 4;
     static frameManager = null;
+    static ta = document.getElementById('ta')
     static setCanvas() {
         Node.canvas = document.getElementById('nodes')
         Node.canvas.width = document.body.offsetWidth
@@ -137,6 +139,12 @@ class Node extends EventEmitter {
         this.duration = 300
         this.beforeDragX = 0
         this.beforeDragY = 0
+
+        this.textarea = ta.cloneNode(1)
+        this.textarea.id = this.id
+
+        Node.nodes.push(this)
+        document.body.appendChild(this.textarea)
     }
     getPos() {
         let r = (Date.now() - this.startTime) / this.duration,
@@ -162,6 +170,8 @@ class Node extends EventEmitter {
         this.on('click', this.onClick)
         this.on('focus', this.onFocus)
         this.on('blur', this.onBlur)
+        this.on('addbrother', this.onAddBrother)
+        this.on('addchild', this.onAddChild)
     }
     onMouseOver() {
         this.isover = true
@@ -184,7 +194,8 @@ class Node extends EventEmitter {
 
     }
     focus() {
-        let that = this
+        const that = this
+        const ta = this.textarea
         this.isfocus = true
         sync(ta, this)
         ta.value = this.text.join('\n')
@@ -192,6 +203,7 @@ class Node extends EventEmitter {
         ta.onkeydown = (e) => {
             if(e.code == "Enter" && !e.altKey){
                 that.emit('addbrother')
+                this.blur()
                 return false
             }else if(e.code == "Enter" && e.altKey){
                 const caretPos = ta.selectionStart + 1
@@ -201,6 +213,8 @@ class Node extends EventEmitter {
                 return false
             }else if(e.code == "Tab"){
                 that.emit('addchild')
+                this.blur()
+                return false
             }
         }
         function oninput(){
@@ -215,7 +229,17 @@ class Node extends EventEmitter {
     }
     blur() {
         this.isfocus = false
-        ta.style.display = 'none'
+        this.textarea.style.display = 'none'
+    }
+    onAddBrother(){
+        let n = this.parent.addChild('', this.index + 1)
+        this.root.layout()
+        n.focus()
+    }
+    onAddChild(){
+        let n =this.addChild('')
+        this.root.layout()
+        n.focus()
     }
     onMouseLeave() {
         this.fontSize = 16
@@ -293,11 +317,11 @@ class Node extends EventEmitter {
                 prev = this.prev(),
                 parent = this.parent
             if (next) {
-                let { left, t_top } = next
-                this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2)
+                let { left, a_top } = next
+                this.moveTo(left, a_top - PH - this.lastLine + this.top)
             } else if (prev) {
-                let { left, t_top, t_height } = prev
-                this.moveTo(left, t_top + t_height + PH)
+                let { left, lastLine } = prev
+                this.moveTo(left, lastLine + PH - this.a_top + this.top)
             } else if (parent) {
                 let { left, top } = parent
                 this.moveTo(left + parent.width + PW, top)
@@ -312,7 +336,7 @@ class Node extends EventEmitter {
         this.height = this.text.length * this.lineHeight
         return Math.max.apply(Math, this.text.map((t, idx) => {
             return this.ctx.measureText(t).width + Node.padding * 2
-        }))
+        })) || 1
     }
     setText(text) {
         this.text = text.split('\n')
@@ -339,7 +363,7 @@ class Node extends EventEmitter {
         const size = this.size
         return [left - 2, bottom + this.size / 2]
     }
-    addChild(text) {
+    addChild(text, i) {
         let n
         if (this.isdata) {
             n = new Node(text, true)
@@ -361,8 +385,16 @@ class Node extends EventEmitter {
         }
         n.size = Math.max(10 - n.level, 2)
         n.parent = this
-        n.index = this.children.length
-        this.children.push(n)
+        if(i === undefined){
+            n.index = this.children.length
+            this.children.push(n)
+        }else{
+            n.index = i
+            this.children.splice(i, 0, n)
+            for(i = i + 1;i<this.children.length;i++){
+                this.children[i].index = i
+            }
+        }
         return n
     }
     addNode(n) {
@@ -417,10 +449,12 @@ class Node extends EventEmitter {
     moveBy(x, y) {
         this.children.forEach(child => child.moveBy(x, y))
         this.setPos(this.left + x, this.top + y)
+        this.a_top += y
     }
     moveTo(left, top) {
-        this.children.forEach(child => child.moveBy(left - this.left, top - this.top))
-        this.setPos(left, top)
+        let x = left - this.left,
+            y = top - this.top
+        this.moveBy(x, y)
     }
     stopAnimate() {
         this.startLeft = this.left
@@ -433,9 +467,9 @@ class Node extends EventEmitter {
             this.startTop = this.top
             this.startTime = Date.now()
         }
+        this.t_top += top - this.top
         this.left = left
         this.top = top
-        this.t_top = this.top + this.height / 2 - this.t_height / 2
     }
     createElement(text) {
         let elem = document.createElement('div')
@@ -566,34 +600,31 @@ class Node extends EventEmitter {
     }
     layout() {
         if (!this.children.length) {
-            this.t_top = this.top
-            this.t_height = this.height
-            this.t_bottom = this.top + this.height
-            this.tc_height = this.height
+            this.a_top = this.top
+            this.a_height = this.height
+            this.lastLine = this.firstLine = this.top + this.height
             return
         }
         let child = this.children[0]
 
         child.layout()
-        let { top, t_height, left, height, tc_height, t_top } = child,
-        fbottom = child.top + child.height
-        this.t_top = t_top
-        this.tc_height = child.tc_height || child.height
-        this.t_bottom = this.t_top + this.tc_height
+        let { left, top, a_top, height, t_height, a_height, firstLine } = child
+        this.firstLine = firstLine
         for (let i = 1; i < this.children.length; i++) {
             child = this.children[i]
             child.layout()
-            top = t_top + t_height + PH + child.tc_height + (child.t_height - child.tc_height) / 2 - child.height
+            top = a_top + a_height + PH - child.a_top + child.top
             child.moveTo(left, top)
             height = child.height
-            t_height = child.t_height
-            tc_height = child.tc_height
-            t_top = child.t_top
+            a_height = child.a_height
+            a_top = child.a_top
         }
-        let bottom = top + height
-        this.t_height = Math.max(top + t_height - this.t_top, this.height)
-        this.setPos(left - PW - this.width, (fbottom + bottom) / 2 - this.height)
-        this.t_top = Math.min(this.t_top, this.top)
+        this.lastLine = a_top + a_height
+        top = (this.lastLine + this.firstLine) / 2 - this.height
+        this.setPos(left - PW - this.width, top)
+
+        this.a_top = Math.min(this.top, this.children[0].a_top)
+        this.a_height = this.lastLine - this.a_top
     }
     mapCoor() {
         return [this.left, this.top, this.left + this.width, this.top + this.height]
@@ -629,17 +660,24 @@ class Node extends EventEmitter {
 var frameManager = new FrameManage()
 Node.frameManager = frameManager
 Node.setCanvas()
-var nodes = Node.parse(data)
-var rootNode = nodes[0]
+Node.parse(data)
+var rootNode = Node.nodes[0]
 frameManager.regist(rootNode)
 rootNode.layout()
 rootNode.moveBy(500, 400)
 rootNode.renderDeep()
 window.rootNode = rootNode
 
+const istouch = 'ontouchstart' in document
+const EVENT = {
+    CLICK: 'click',
+    MOUSEDOWN: istouch ? 'touchstart' : 'mousedown',
+    MOUSEMOVE: istouch ? 'touchmove' : 'mousemove',
+    MOUSEUP: istouch ? 'touchend' : 'mouseup',
+}
+
 document.body.addEventListener('click', (e) => {
     const nodes = getNodes(e)
-    console.log(nodes)
     nodes.forEach(node => node.emit('click'))
     nodes.others().forEach(node => node.emit('blur'))
 }, false)
@@ -652,20 +690,34 @@ document.body.addEventListener('dblclick', (e) => {
     })
 }, false)
 let isdown = false
-document.body.addEventListener('mousedown', e => {
+let startX, startY
+let moveX, moveY
+document.body.addEventListener(EVENT.MOUSEDOWN, e => {
+    if(e.touches && e.touches.length){
+        e = e.touches[0]
+    }
     const { clientX, clientY } = e
+    startX = clientX
+    startY = clientY
     isdown = true
-    nodes.map(node => {
+    Node.nodes.map(node => {
         let coor = node.mapCoor()
         if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
             node.emit('mousedown')
         }
     })
 })
-document.body.addEventListener('mouseup', e => {
-    const { clientX, clientY } = e
+document.body.addEventListener(EVENT.MOUSEUP, (e) => {
+    if(e.touches && e.touches.length){
+        e = e.touches[0]
+    }
+    let { clientX, clientY } = e
+    if(clientX === undefined && clientY === undefined){
+        e.clientX = moveX
+        e.clientY = moveY
+    }
     isdown = false
-    nodes.map(node => {
+    Node.nodes.map(node => {
         let coor = node.mapCoor()
         if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
             node.emit('mouseup')
@@ -675,7 +727,12 @@ document.body.addEventListener('mouseup', e => {
         }
     })
 })
-document.body.addEventListener('mousemove', e => {
+document.body.addEventListener(EVENT.MOUSEMOVE, e => {
+    if(e.touches && e.touches.length){
+        e = e.touches[0]
+    }
+    moveX = e.clientX
+    moveY = e.clientY
     let pointer = false
     let isdrag = false
     let ret = getNodes(e)
@@ -691,33 +748,37 @@ document.body.addEventListener('mousemove', e => {
     ret.others().forEach(node => {
         node.isover && node.emit('mouseleave')
     })
-    nodes.map(node => {
+    Node.nodes.map(node => {
         if (node.isroot) {
             return
         }
         if (node.isdown && !node.isdragstart) {
             node.emit('dragstart', e)
         } else if (node.isdown) {
+            e.movementX = moveX - startX
+            e.movementY = moveY - startY
             node.emit('drag', e)
             isdrag = true
         }
     })
+
     if (pointer) {
         document.body.style.cursor = 'pointer'
     } else if (isdown && !isdrag) {
         document.body.style.cursor = 'pointer'
-        rootNode.moveBy(e.movementX, e.movementY)
+        rootNode.moveBy(moveX - startX, moveY - startY)
     } else {
         document.body.style.cursor = 'default'
     }
-
+    startX = moveX
+    startY = moveY
 })
 
 function getNodes(e) {
     const { clientX, clientY } = e
     let others = [],
         result
-    result = nodes.filter(node => {
+    result = Node.nodes.filter(node => {
         let coor = node.mapCoor()
         if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
             return true
@@ -730,3 +791,4 @@ function getNodes(e) {
     }
     return result
 }
+window.nodes = Node.nodes

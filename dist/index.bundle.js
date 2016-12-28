@@ -268,6 +268,12 @@
 	        _this.duration = 300;
 	        _this.beforeDragX = 0;
 	        _this.beforeDragY = 0;
+
+	        _this.textarea = ta.cloneNode(1);
+	        _this.textarea.id = _this.id;
+
+	        Node.nodes.push(_this);
+	        document.body.appendChild(_this.textarea);
 	        return _this;
 	    }
 
@@ -295,23 +301,106 @@
 	            this.on('drag', this.onDrag);
 	            this.on('dragstart', this.onDragStart);
 	            this.on('dragdrop', this.onDragDrop);
-	            this.onDblclick = this.onDblclick.bind(this);
+	            this.on('dblclick', this.onDblClick);
+	            this.on('click', this.onClick);
+	            this.on('focus', this.onFocus);
+	            this.on('blur', this.onBlur);
+	            this.on('addbrother', this.onAddBrother);
+	            this.on('addchild', this.onAddChild);
 	        }
 	    }, {
 	        key: 'onMouseOver',
 	        value: function onMouseOver() {
 	            this.isover = true;
-	            document.body.addEventListener('dblclick', this.onDblclick, false);
 	        }
 	    }, {
-	        key: 'onDblclick',
-	        value: function onDblclick(e) {}
+	        key: 'onClick',
+	        value: function onClick(e) {
+	            if (this.isfocus) {
+	                this.setCursor(e);
+	            }
+	        }
+	    }, {
+	        key: 'setCursor',
+	        value: function setCursor(e) {
+	            console.log(e);
+	        }
+	    }, {
+	        key: 'onFocus',
+	        value: function onFocus() {
+	            this.focus();
+	        }
+	    }, {
+	        key: 'onBlur',
+	        value: function onBlur() {
+	            this.blur();
+	        }
+	    }, {
+	        key: 'onDblClick',
+	        value: function onDblClick(e) {}
+	    }, {
+	        key: 'focus',
+	        value: function focus() {
+	            var _this2 = this;
+
+	            var that = this;
+	            var ta = this.textarea;
+	            this.isfocus = true;
+	            sync(ta, this);
+	            ta.value = this.text.join('\n');
+	            ta.oninput = oninput;
+	            ta.onkeydown = function (e) {
+	                if (e.code == "Enter" && !e.altKey) {
+	                    that.emit('addbrother');
+	                    _this2.blur();
+	                    return false;
+	                } else if (e.code == "Enter" && e.altKey) {
+	                    var caretPos = ta.selectionStart + 1;
+	                    ta.value = ta.value.slice(0, ta.selectionStart) + '\n' + ta.value.slice(ta.selectionEnd);
+	                    oninput();
+	                    ta.setSelectionRange(caretPos, caretPos);
+	                    return false;
+	                } else if (e.code == "Tab") {
+	                    that.emit('addchild');
+	                    _this2.blur();
+	                    return false;
+	                }
+	            };
+	            function oninput() {
+	                that.setText(ta.value);
+	                that.root.layout();
+	                sync(ta, that);
+	            }
+	            function sync(t, n) {
+	                t.style = 'display:block; left: ' + (n.left + 1) + ';top: ' + n.top + ';width: ' + n.width + ';height: ' + n.height + ';';
+	            }
+	            ta.focus();
+	        }
+	    }, {
+	        key: 'blur',
+	        value: function blur() {
+	            this.isfocus = false;
+	            this.textarea.style.display = 'none';
+	        }
+	    }, {
+	        key: 'onAddBrother',
+	        value: function onAddBrother() {
+	            var n = this.parent.addChild('', this.index + 1);
+	            this.root.layout();
+	            n.focus();
+	        }
+	    }, {
+	        key: 'onAddChild',
+	        value: function onAddChild() {
+	            var n = this.addChild('');
+	            this.root.layout();
+	            n.focus();
+	        }
 	    }, {
 	        key: 'onMouseLeave',
 	        value: function onMouseLeave() {
 	            this.fontSize = 16;
 	            this.isover = false;
-	            document.body.removeEventListener('dblclick', this.onDblclick, false);
 	        }
 	    }, {
 	        key: 'onMouseUp',
@@ -353,7 +442,7 @@
 	    }, {
 	        key: 'onDrag',
 	        value: function onDrag(e) {
-	            var _this2 = this;
+	            var _this3 = this;
 
 	            this.moveBy(e.movementX, e.movementY);
 	            if (e.overNode) {
@@ -368,14 +457,13 @@
 	            }
 	            var children = this.parent.children,
 	                index = this.index;
-	            var a = children.slice(0).sort(function (a, b) {
+	            children.slice(0).sort(function (a, b) {
 	                return a.top > b.top;
 	            }).map(function (child, idx) {
 	                if (child.index == index) {
-	                    return [child.text, 'ccc'].join(', ');
+	                    return;
 	                }
-	                child.moveTo.apply(child, _this2.pos[idx]);
-	                return [child.text, _this2.pos[idx]].join(', ');
+	                child.moveTo.apply(child, _this3.pos[idx]);
 	            });
 	        }
 	    }, {
@@ -399,15 +487,14 @@
 	                    parent = this.parent;
 	                if (next) {
 	                    var left = next.left,
-	                        t_top = next.t_top;
+	                        a_top = next.a_top;
 
-	                    this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2);
+	                    this.moveTo(left, a_top - PH - this.lastLine + this.top);
 	                } else if (prev) {
 	                    var _left = prev.left,
-	                        _t_top = prev.t_top,
-	                        t_height = prev.t_height;
+	                        lastLine = prev.lastLine;
 
-	                    this.moveTo(_left, _t_top + t_height + PH);
+	                    this.moveTo(_left, lastLine + PH - this.a_top + this.top);
 	                } else if (parent) {
 	                    var _left2 = parent.left,
 	                        top = parent.top;
@@ -420,27 +507,28 @@
 	    }, {
 	        key: 'getWidth',
 	        value: function getWidth() {
-	            var _this3 = this;
+	            var _this4 = this;
 
 	            this.ctx.font = '600 ' + this.fontSize + 'px Arial';
 	            this.ctx.fillStyle = "rgba(0, 0, 0, .75)";
 	            this.ctx.textAlign = "left";
 	            this.height = this.text.length * this.lineHeight;
 	            return Math.max.apply(Math, this.text.map(function (t, idx) {
-	                return _this3.ctx.measureText(t).width + Node.padding * 2;
-	            }));
+	                return _this4.ctx.measureText(t).width + Node.padding * 2;
+	            })) || 1;
 	        }
 	    }, {
 	        key: 'setText',
 	        value: function setText(text) {
-	            var _this4 = this;
+	            var _this5 = this;
 
 	            this.text = text.split('\n');
 	            var width = this.getWidth();
 	            this.children.forEach(function (child) {
-	                return child.moveBy(width - _this4.width, 0);
+	                return child.moveBy(width - _this5.width, 0);
 	            });
 	            this.width = width;
+	            return width;
 	        }
 	    }, {
 	        key: 'getEdgeP',
@@ -475,7 +563,7 @@
 	        }
 	    }, {
 	        key: 'addChild',
-	        value: function addChild(text) {
+	        value: function addChild(text, i) {
 	            var n = void 0;
 	            if (this.isdata) {
 	                n = new Node(text, true);
@@ -497,8 +585,16 @@
 	            }
 	            n.size = Math.max(10 - n.level, 2);
 	            n.parent = this;
-	            n.index = this.children.length;
-	            this.children.push(n);
+	            if (i === undefined) {
+	                n.index = this.children.length;
+	                this.children.push(n);
+	            } else {
+	                n.index = i;
+	                this.children.splice(i, 0, n);
+	                for (i = i + 1; i < this.children.length; i++) {
+	                    this.children[i].index = i;
+	                }
+	            }
 	            return n;
 	        }
 	    }, {
@@ -573,16 +669,14 @@
 	                return child.moveBy(x, y);
 	            });
 	            this.setPos(this.left + x, this.top + y);
+	            this.a_top += y;
 	        }
 	    }, {
 	        key: 'moveTo',
 	        value: function moveTo(left, top) {
-	            var _this5 = this;
-
-	            this.children.forEach(function (child) {
-	                return child.moveBy(left - _this5.left, top - _this5.top);
-	            });
-	            this.setPos(left, top);
+	            var x = left - this.left,
+	                y = top - this.top;
+	            this.moveBy(x, y);
 	        }
 	    }, {
 	        key: 'stopAnimate',
@@ -599,9 +693,9 @@
 	                this.startTop = this.top;
 	                this.startTime = Date.now();
 	            }
+	            this.t_top += top - this.top;
 	            this.left = left;
 	            this.top = top;
-	            this.t_top = this.top + this.height / 2 - this.t_height / 2;
 	        }
 	    }, {
 	        key: 'createElement',
@@ -766,40 +860,39 @@
 	        key: 'layout',
 	        value: function layout() {
 	            if (!this.children.length) {
-	                this.t_top = this.top;
-	                this.t_height = this.height;
-	                this.t_bottom = this.top + this.height;
-	                this.tc_height = this.height;
+	                this.a_top = this.top;
+	                this.a_height = this.height;
+	                this.lastLine = this.firstLine = this.top + this.height;
 	                return;
 	            }
 	            var child = this.children[0];
 
 	            child.layout();
 	            var _child = child,
-	                top = _child.top,
-	                t_height = _child.t_height,
 	                left = _child.left,
+	                top = _child.top,
+	                a_top = _child.a_top,
 	                height = _child.height,
-	                tc_height = _child.tc_height,
-	                t_top = _child.t_top,
-	                fbottom = child.top + child.height;
+	                t_height = _child.t_height,
+	                a_height = _child.a_height,
+	                firstLine = _child.firstLine;
 
-	            this.t_top = t_top;
-	            this.tc_height = child.tc_height || child.height;
-	            this.t_bottom = this.t_top + this.tc_height;
+	            this.firstLine = firstLine;
 	            for (var i = 1; i < this.children.length; i++) {
 	                child = this.children[i];
 	                child.layout();
-	                top = t_top + t_height + PH + child.tc_height + (child.t_height - child.tc_height) / 2 - child.height;
+	                top = a_top + a_height + PH - child.a_top + child.top;
 	                child.moveTo(left, top);
 	                height = child.height;
-	                t_height = child.t_height;
-	                tc_height = child.tc_height;
-	                t_top = child.t_top;
+	                a_height = child.a_height;
+	                a_top = child.a_top;
 	            }
-	            var bottom = top + height;
-	            this.t_height = top + t_height - this.t_top;
-	            this.setPos(left - PW - this.width, (fbottom + bottom) / 2 - this.height);
+	            this.lastLine = a_top + a_height;
+	            top = (this.lastLine + this.firstLine) / 2 - this.height;
+	            this.setPos(left - PW - this.width, top);
+
+	            this.a_top = Math.min(this.top, this.children[0].a_top);
+	            this.a_height = this.lastLine - this.a_top;
 	        }
 	    }, {
 	        key: 'mapCoor',
@@ -853,46 +946,86 @@
 
 	Node.container = document.getElementById('nodes');
 	Node.id = 1;
+	Node.nodes = [];
 	Node.padding = 4;
 	Node.frameManager = null;
+	Node.ta = document.getElementById('ta');
 
 	var frameManager = new FrameManage();
 	Node.frameManager = frameManager;
 	Node.setCanvas();
-	var nodes = Node.parse(_data2.default);
-	var rootNode = nodes[0];
+	Node.parse(_data2.default);
+	var rootNode = Node.nodes[0];
 	frameManager.regist(rootNode);
 	rootNode.layout();
 	rootNode.moveBy(500, 400);
 	rootNode.renderDeep();
 	window.rootNode = rootNode;
 
-	document.body.addEventListener('dblclick', function (e) {
+	var istouch = 'ontouchstart' in document;
+	var EVENT = {
+	    CLICK: 'click',
+	    MOUSEDOWN: istouch ? 'touchstart' : 'mousedown',
+	    MOUSEMOVE: istouch ? 'touchmove' : 'mousemove',
+	    MOUSEUP: istouch ? 'touchend' : 'mouseup'
+	};
+
+	document.body.addEventListener('click', function (e) {
+	    var nodes = getNodes(e);
 	    nodes.forEach(function (node) {
-	        return node.blur();
+	        return node.emit('click');
 	    });
-	    var node = getNodes(e)[0];
-	    node.focus();
+	    nodes.others().forEach(function (node) {
+	        return node.emit('blur');
+	    });
+	}, false);
+	document.body.addEventListener('dblclick', function (e) {
+	    var nodes = getNodes(e);
+	    nodes.others().forEach(function (node) {
+	        return node.emit('blur');
+	    });
+	    nodes.forEach(function (node) {
+	        node.emit('dblclick');
+	        node.emit('focus');
+	    });
 	}, false);
 	var isdown = false;
-	document.body.addEventListener('mousedown', function (e) {
-	    var clientX = e.clientX,
-	        clientY = e.clientY;
+	var startX = void 0,
+	    startY = void 0;
+	var moveX = void 0,
+	    moveY = void 0;
+	document.body.addEventListener(EVENT.MOUSEDOWN, function (e) {
+	    if (e.touches && e.touches.length) {
+	        e = e.touches[0];
+	    }
+	    var _e = e,
+	        clientX = _e.clientX,
+	        clientY = _e.clientY;
 
+	    startX = clientX;
+	    startY = clientY;
 	    isdown = true;
-	    nodes.map(function (node) {
+	    Node.nodes.map(function (node) {
 	        var coor = node.mapCoor();
 	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
 	            node.emit('mousedown');
 	        }
 	    });
 	});
-	document.body.addEventListener('mouseup', function (e) {
-	    var clientX = e.clientX,
-	        clientY = e.clientY;
+	document.body.addEventListener(EVENT.MOUSEUP, function (e) {
+	    if (e.touches && e.touches.length) {
+	        e = e.touches[0];
+	    }
+	    var _e2 = e,
+	        clientX = _e2.clientX,
+	        clientY = _e2.clientY;
 
+	    if (clientX === undefined && clientY === undefined) {
+	        e.clientX = moveX;
+	        e.clientY = moveY;
+	    }
 	    isdown = false;
-	    nodes.map(function (node) {
+	    Node.nodes.map(function (node) {
 	        var coor = node.mapCoor();
 	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
 	            node.emit('mouseup');
@@ -902,7 +1035,12 @@
 	        }
 	    });
 	});
-	document.body.addEventListener('mousemove', function (e) {
+	document.body.addEventListener(EVENT.MOUSEMOVE, function (e) {
+	    if (e.touches && e.touches.length) {
+	        e = e.touches[0];
+	    }
+	    moveX = e.clientX;
+	    moveY = e.clientY;
 	    var pointer = false;
 	    var isdrag = false;
 	    var ret = getNodes(e);
@@ -918,33 +1056,39 @@
 	    ret.others().forEach(function (node) {
 	        node.isover && node.emit('mouseleave');
 	    });
-	    nodes.map(function (node) {
+	    Node.nodes.map(function (node) {
 	        if (node.isroot) {
 	            return;
 	        }
 	        if (node.isdown && !node.isdragstart) {
 	            node.emit('dragstart', e);
 	        } else if (node.isdown) {
+	            e.movementX = moveX - startX;
+	            e.movementY = moveY - startY;
 	            node.emit('drag', e);
 	            isdrag = true;
 	        }
 	    });
+
 	    if (pointer) {
 	        document.body.style.cursor = 'pointer';
 	    } else if (isdown && !isdrag) {
 	        document.body.style.cursor = 'pointer';
-	        rootNode.moveBy(e.movementX, e.movementY);
+	        rootNode.moveBy(moveX - startX, moveY - startY);
 	    } else {
 	        document.body.style.cursor = 'default';
 	    }
+	    startX = moveX;
+	    startY = moveY;
 	});
+
 	function getNodes(e) {
 	    var clientX = e.clientX,
 	        clientY = e.clientY;
 
 	    var others = [],
 	        result = void 0;
-	    result = nodes.filter(function (node) {
+	    result = Node.nodes.filter(function (node) {
 	        var coor = node.mapCoor();
 	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
 	            return true;
@@ -957,6 +1101,7 @@
 	    };
 	    return result;
 	}
+	window.nodes = Node.nodes;
 
 /***/ },
 /* 5 */
@@ -3003,21 +3148,6 @@
 	    "children": [{
 	        "text": "Big Text \njylZnode 1",
 	        "children": [{
-	            "text": "Big Text \njylZnode 2.1",
-	            "children": []
-	        }, {
-	            "text": "Big Text jylZnode 2.2",
-	            "children": []
-	        }, {
-	            "text": "Big Text \njylZnode 2.3",
-	            "children": []
-	        }, {
-	            "text": "Big Text jylZnode 2.4",
-	            "children": []
-	        }]
-	    }, {
-	        "text": "Big Text jylZnode 2",
-	        "children": [{
 	            "text": "Big Text jylZnode 1.1",
 	            "children": []
 	        }, {
@@ -3028,6 +3158,21 @@
 	            "children": []
 	        }, {
 	            "text": "Big Text jylZnode 1.4",
+	            "children": []
+	        }]
+	    }, {
+	        "text": "Big Text\n jylZnode 2\n jylZnode 2\n jylZnode 2\n jylZnode 2\n jylZnode 2",
+	        "children": [{
+	            "text": "Big Text \njylZnode 2.1",
+	            "children": []
+	        }, {
+	            "text": "Big Text jylZnode 2.2",
+	            "children": []
+	        }, {
+	            "text": "Big Text \njylZnode 2.3",
+	            "children": []
+	        }, {
+	            "text": "Big Text jylZnode 2.4",
 	            "children": []
 	        }]
 	    }, {
