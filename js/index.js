@@ -158,13 +158,19 @@ class Node extends EventEmitter {
         this.on('drag', this.onDrag)
         this.on('dragstart', this.onDragStart)
         this.on('dragdrop', this.onDragDrop)
+        this.onDblclick = this.onDblclick.bind(this)
     }
     onMouseOver() {
         this.isover = true
+        document.body.addEventListener('dblclick', this.onDblclick, false)
+    }
+    onDblclick(e){
+
     }
     onMouseLeave() {
         this.fontSize = 16
         this.isover = false
+        document.body.removeEventListener('dblclick', this.onDblclick, false)
     }
     onMouseUp() {
         this.isdown = false
@@ -514,26 +520,26 @@ class Node extends EventEmitter {
             this.t_top = this.top
             this.t_height = this.height
             this.t_bottom = this.top + this.height
-            this.tc_height = 0
+            this.tc_height = this.height
             return
         }
         let child = this.children[0]
 
         child.layout()
-        let { top, t_height, left, height, tc_height } = child,
+        let { top, t_height, left, height, tc_height, t_top } = child,
             fbottom = child.top + child.height
-        this.t_top = child.t_top
+        this.t_top = t_top
         this.tc_height = child.tc_height || child.height
-        this.t_bottom = child.t_top + child.tc_height
+        this.t_bottom = this.t_top + this.tc_height
         for (let i = 1; i < this.children.length; i++) {
             child = this.children[i]
             child.layout()
-            // top = top + t_height / 2 + height + child.t_height / 2 - this.height + PH
-            top = top + height + (t_height - tc_height) / 2 + PH + child.tc_height + (child.t_height - child.tc_height) / 2 - child.height
+            top = t_top + t_height + PH + child.tc_height + (child.t_height - child.tc_height) / 2 - child.height
             child.moveTo(left, top)
             height = child.height
             t_height = child.t_height
             tc_height = child.tc_height
+            t_top = child.t_top
         }
         let bottom = top + height
         this.t_height = top + t_height - this.t_top
@@ -581,6 +587,11 @@ rootNode.moveBy(500, 400)
 rootNode.renderDeep()
 window.rootNode = rootNode
 
+document.body.addEventListener('dblclick', (e) => {
+    nodes.forEach(node => node.blur())
+    const node = getNodes(e)[0]
+    node.focus()
+}, false)
 let isdown = false
 document.body.addEventListener('mousedown', e => {
     const { clientX, clientY } = e
@@ -606,24 +617,25 @@ document.body.addEventListener('mouseup', e => {
     })
 })
 document.body.addEventListener('mousemove', e => {
-    const { clientX, clientY } = e
     let pointer = false
     let isdrag = false
-    nodes.map(node => {
-        let coor = node.mapCoor()
-        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
-            pointer = true
-            if (!node.isover && !node.isdragstart) {
-                node.emit('mouseover')
-            }
-            if(!node.isdragstart){
-                e.overNode = node
-            }
-        } else {
-            node.isover && node.emit('mouseleave')
+    let ret = getNodes(e)
+    ret.forEach(node => {
+        pointer = true
+        if (!node.isover && !node.isdragstart) {
+            node.emit('mouseover')
+        }
+        if(!node.isdragstart){
+            e.overNode = node
         }
     })
+    ret.others().forEach(node => {
+        node.isover && node.emit('mouseleave')
+    })
     nodes.map(node => {
+        if(node.isroot){
+            return
+        }
         if (node.isdown && !node.isdragstart) {
             node.emit('dragstart', e)
         } else if (node.isdown) {
@@ -641,3 +653,19 @@ document.body.addEventListener('mousemove', e => {
     }
 
 })
+function getNodes(e){
+    const { clientX, clientY } = e
+    let others = [], result
+    result = nodes.filter(node => {
+        let coor = node.mapCoor()
+        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
+            return true
+        }
+        others.push(node)
+        return false
+    })
+    result.others = () =>{
+        return others
+    }
+    return result
+}

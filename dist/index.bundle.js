@@ -295,17 +295,23 @@
 	            this.on('drag', this.onDrag);
 	            this.on('dragstart', this.onDragStart);
 	            this.on('dragdrop', this.onDragDrop);
+	            this.onDblclick = this.onDblclick.bind(this);
 	        }
 	    }, {
 	        key: 'onMouseOver',
 	        value: function onMouseOver() {
 	            this.isover = true;
+	            document.body.addEventListener('dblclick', this.onDblclick, false);
 	        }
+	    }, {
+	        key: 'onDblclick',
+	        value: function onDblclick(e) {}
 	    }, {
 	        key: 'onMouseLeave',
 	        value: function onMouseLeave() {
 	            this.fontSize = 16;
 	            this.isover = false;
+	            document.body.removeEventListener('dblclick', this.onDblclick, false);
 	        }
 	    }, {
 	        key: 'onMouseUp',
@@ -763,7 +769,7 @@
 	                this.t_top = this.top;
 	                this.t_height = this.height;
 	                this.t_bottom = this.top + this.height;
-	                this.tc_height = 0;
+	                this.tc_height = this.height;
 	                return;
 	            }
 	            var child = this.children[0];
@@ -775,20 +781,21 @@
 	                left = _child.left,
 	                height = _child.height,
 	                tc_height = _child.tc_height,
+	                t_top = _child.t_top,
 	                fbottom = child.top + child.height;
 
-	            this.t_top = child.t_top;
+	            this.t_top = t_top;
 	            this.tc_height = child.tc_height || child.height;
-	            this.t_bottom = child.t_top + child.tc_height;
+	            this.t_bottom = this.t_top + this.tc_height;
 	            for (var i = 1; i < this.children.length; i++) {
 	                child = this.children[i];
 	                child.layout();
-	                // top = top + t_height / 2 + height + child.t_height / 2 - this.height + PH
-	                top = top + height + (t_height - tc_height) / 2 + PH + child.tc_height + (child.t_height - child.tc_height) / 2 - child.height;
+	                top = t_top + t_height + PH + child.tc_height + (child.t_height - child.tc_height) / 2 - child.height;
 	                child.moveTo(left, top);
 	                height = child.height;
 	                t_height = child.t_height;
 	                tc_height = child.tc_height;
+	                t_top = child.t_top;
 	            }
 	            var bottom = top + height;
 	            this.t_height = top + t_height - this.t_top;
@@ -860,6 +867,13 @@
 	rootNode.renderDeep();
 	window.rootNode = rootNode;
 
+	document.body.addEventListener('dblclick', function (e) {
+	    nodes.forEach(function (node) {
+	        return node.blur();
+	    });
+	    var node = getNodes(e)[0];
+	    node.focus();
+	}, false);
 	var isdown = false;
 	document.body.addEventListener('mousedown', function (e) {
 	    var clientX = e.clientX,
@@ -889,26 +903,25 @@
 	    });
 	});
 	document.body.addEventListener('mousemove', function (e) {
-	    var clientX = e.clientX,
-	        clientY = e.clientY;
-
 	    var pointer = false;
 	    var isdrag = false;
-	    nodes.map(function (node) {
-	        var coor = node.mapCoor();
-	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
-	            pointer = true;
-	            if (!node.isover && !node.isdragstart) {
-	                node.emit('mouseover');
-	            }
-	            if (!node.isdragstart) {
-	                e.overNode = node;
-	            }
-	        } else {
-	            node.isover && node.emit('mouseleave');
+	    var ret = getNodes(e);
+	    ret.forEach(function (node) {
+	        pointer = true;
+	        if (!node.isover && !node.isdragstart) {
+	            node.emit('mouseover');
+	        }
+	        if (!node.isdragstart) {
+	            e.overNode = node;
 	        }
 	    });
+	    ret.others().forEach(function (node) {
+	        node.isover && node.emit('mouseleave');
+	    });
 	    nodes.map(function (node) {
+	        if (node.isroot) {
+	            return;
+	        }
 	        if (node.isdown && !node.isdragstart) {
 	            node.emit('dragstart', e);
 	        } else if (node.isdown) {
@@ -925,6 +938,25 @@
 	        document.body.style.cursor = 'default';
 	    }
 	});
+	function getNodes(e) {
+	    var clientX = e.clientX,
+	        clientY = e.clientY;
+
+	    var others = [],
+	        result = void 0;
+	    result = nodes.filter(function (node) {
+	        var coor = node.mapCoor();
+	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
+	            return true;
+	        }
+	        others.push(node);
+	        return false;
+	    });
+	    result.others = function () {
+	        return others;
+	    };
+	    return result;
+	}
 
 /***/ },
 /* 5 */
@@ -2971,21 +3003,6 @@
 	    "children": [{
 	        "text": "Big Text \njylZnode 1",
 	        "children": [{
-	            "text": "Big Text jylZnode 1.1",
-	            "children": []
-	        }, {
-	            "text": "Big Text jylZnode 1.2",
-	            "children": []
-	        }, {
-	            "text": "Big Text jylZnode 1.3",
-	            "children": []
-	        }, {
-	            "text": "Big Text jylZnode 1.4",
-	            "children": []
-	        }]
-	    }, {
-	        "text": "Big Text jylZnode 2",
-	        "children": [{
 	            "text": "Big Text \njylZnode 2.1",
 	            "children": []
 	        }, {
@@ -2996,6 +3013,21 @@
 	            "children": []
 	        }, {
 	            "text": "Big Text jylZnode 2.4",
+	            "children": []
+	        }]
+	    }, {
+	        "text": "Big Text jylZnode 2",
+	        "children": [{
+	            "text": "Big Text jylZnode 1.1",
+	            "children": []
+	        }, {
+	            "text": "Big Text jylZnode 1.2",
+	            "children": []
+	        }, {
+	            "text": "Big Text jylZnode 1.3",
+	            "children": []
+	        }, {
+	            "text": "Big Text jylZnode 1.4",
 	            "children": []
 	        }]
 	    }, {
