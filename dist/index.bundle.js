@@ -146,6 +146,7 @@
 	        this.canvas.height = document.body.offsetHeight;
 	        this.ctx = this.canvas.getContext('2d');
 	        this.oriCtx = this.oriCanvas.getContext('2d');
+	        this.ischanged = false;
 	        this.run = this.run.bind(this);
 	        this.run();
 	    }
@@ -197,14 +198,22 @@
 	            return true;
 	        }
 	    }, {
+	        key: 'change',
+	        value: function change() {
+	            this.ischanged = true;
+	        }
+	    }, {
 	        key: 'run',
 	        value: function run(t) {
+	            // if(this.ischanged){
 	            this.clear(this.oriCtx);
 	            this.nodes.forEach(function (node) {
 	                node.renderDeep();
 	            });
 	            this.clear(this.ctx);
 	            this.ctx.drawImage(this.oriCanvas, 0, 0);
+	            this.ischanged = false;
+	            // }
 	            requestAnimationFrame(this.run);
 	            this.t = t;
 	        }
@@ -230,7 +239,6 @@
 	        var _this = (0, _possibleConstructorReturn3.default)(this, (Node.__proto__ || (0, _getPrototypeOf2.default)(Node)).call(this));
 
 	        _this.children = [];
-	        _this.text = text;
 	        _this.id = Node.id;
 	        Node.id += 1;
 	        _this.isroot = !!isroot;
@@ -241,12 +249,12 @@
 	        _this.ctx.font = '600 ' + _this.fontSize + 'px Arial';
 	        _this.ctx.fillStyle = "rgba(0, 0, 0, .75)";
 	        _this.ctx.textAlign = "left";
-	        _this.height = 20;
 	        _this.left = 0;
 	        _this.top = 0;
 	        _this.size = 10;
-	        _this.width = _this.getWidth();
 	        _this.isleft = false;
+	        _this.lineHeight = 20;
+	        _this.setText(text);
 	        _this.applyStyle = _this.applyStyle.bind(_this);
 
 	        _this.isover = false;
@@ -296,6 +304,7 @@
 	    }, {
 	        key: 'onMouseLeave',
 	        value: function onMouseLeave() {
+	            this.fontSize = 16;
 	            this.isover = false;
 	        }
 	    }, {
@@ -331,11 +340,20 @@
 	            }
 	        }
 	    }, {
+	        key: 'overon',
+	        value: function overon(node) {
+	            this.overnode = node;
+	        }
+	    }, {
 	        key: 'onDrag',
 	        value: function onDrag(e) {
 	            var _this2 = this;
 
 	            this.moveBy(e.movementX, e.movementY);
+	            if (e.overNode) {
+	                e.overNode.fontSize = 18;
+	            }
+	            this.overon(e.overNode);
 	            if (this.isroot) {
 	                return;
 	            }
@@ -359,52 +377,62 @@
 	        value: function onDragDrop() {
 	            this.isdragstart = false;
 	            this.isdown = false;
-	            this.parent.children.sort(function (a, b) {
-	                return a.top > b.top;
-	            });
-	            this.parent.children.forEach(function (child, idx) {
-	                child.index = idx;
-	            });
-	            var next = this.next(),
-	                prev = this.prev(),
-	                parent = this.parent;
-	            if (next) {
-	                var left = next.left,
-	                    t_top = next.t_top;
 
-	                this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2);
-	            } else if (prev) {
-	                var _left = prev.left,
-	                    _t_top = prev.t_top,
-	                    t_height = prev.t_height;
+	            if (this.overnode) {
+	                this.remove();
+	                this.overnode.addNode(this);
+	            } else {
+	                this.parent.children.sort(function (a, b) {
+	                    return a.top > b.top;
+	                });
+	                this.parent.children.forEach(function (child, idx) {
+	                    child.index = idx;
+	                });
+	                var next = this.next(),
+	                    prev = this.prev(),
+	                    parent = this.parent;
+	                if (next) {
+	                    var left = next.left,
+	                        t_top = next.t_top;
 
-	                this.moveTo(_left, _t_top + t_height + PH);
-	            } else if (parent) {
-	                var _left2 = parent.left,
-	                    top = parent.top;
+	                    this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2);
+	                } else if (prev) {
+	                    var _left = prev.left,
+	                        _t_top = prev.t_top,
+	                        t_height = prev.t_height;
 
-	                this.moveTo(_left2 + parent.width + PW, top);
+	                    this.moveTo(_left, _t_top + t_height + PH);
+	                } else if (parent) {
+	                    var _left2 = parent.left,
+	                        top = parent.top;
+
+	                    this.moveTo(_left2 + parent.width + PW, top);
+	                }
 	            }
-	            // this.stopAnimate()
 	            this.root.layout();
 	        }
 	    }, {
 	        key: 'getWidth',
 	        value: function getWidth() {
+	            var _this3 = this;
+
 	            this.ctx.font = '600 ' + this.fontSize + 'px Arial';
 	            this.ctx.fillStyle = "rgba(0, 0, 0, .75)";
 	            this.ctx.textAlign = "left";
-	            return this.ctx.measureText(this.text).width + Node.padding * 2;
+	            this.height = this.text.length * this.lineHeight;
+	            return Math.max.apply(Math, this.text.map(function (t, idx) {
+	                return _this3.ctx.measureText(t).width + Node.padding * 2;
+	            }));
 	        }
 	    }, {
 	        key: 'setText',
 	        value: function setText(text) {
-	            var _this3 = this;
+	            var _this4 = this;
 
-	            this.text = text;
+	            this.text = text.split('\n');
 	            var width = this.getWidth();
 	            this.children.forEach(function (child) {
-	                return child.moveBy(width - _this3.width, 0);
+	                return child.moveBy(width - _this4.width, 0);
 	            });
 	            this.width = width;
 	        }
@@ -468,6 +496,46 @@
 	            return n;
 	        }
 	    }, {
+	        key: 'addNode',
+	        value: function addNode(n) {
+	            n.parent = this;
+	            n.level = this.level + 1;
+	            n.root = this.root;
+	            n.data = this.data;
+	            n.color = this.color;
+	            n.index = this.children.length;
+	            this.children.push(n);
+	            if (this.isroot) {
+	                this.color = randomColor();
+	            }
+	            n.flush();
+	        }
+	    }, {
+	        key: 'flush',
+	        value: function flush() {
+	            this.level = this.parent.level + 1;
+	            this.color = this.parent.color;
+	            this.size = Math.max(10 - this.level, 2);
+	            this.children.forEach(function (child) {
+	                child.flush();
+	            });
+	        }
+	    }, {
+	        key: 'removeNode',
+	        value: function removeNode(n) {
+	            this.children = this.children.filter(function (child) {
+	                return child !== n;
+	            });
+	            this.children.forEach(function (n, idx) {
+	                n.index = idx;
+	            });
+	        }
+	    }, {
+	        key: 'remove',
+	        value: function remove() {
+	            this.parent.removeNode(this);
+	        }
+	    }, {
 	        key: 'prev',
 	        value: function prev() {
 	            if (this.index >= 1) {
@@ -503,10 +571,10 @@
 	    }, {
 	        key: 'moveTo',
 	        value: function moveTo(left, top) {
-	            var _this4 = this;
+	            var _this5 = this;
 
 	            this.children.forEach(function (child) {
-	                return child.moveBy(left - _this4.left, top - _this4.top);
+	                return child.moveBy(left - _this5.left, top - _this5.top);
 	            });
 	            this.setPos(left, top);
 	        }
@@ -608,6 +676,8 @@
 	    }, {
 	        key: 'applyStyle',
 	        value: function applyStyle() {
+	            var _this6 = this;
+
 	            var _getPos3 = this.getPos(),
 	                left = _getPos3.left,
 	                top = _getPos3.top;
@@ -623,7 +693,9 @@
 	            ctx.font = '600 ' + this.fontSize + 'px Arial';
 	            ctx.fillStyle = "rgba(0, 0, 0, .75)";
 	            ctx.textAlign = "left";
-	            ctx.fillText(this.text, left + Node.padding, top + this.fontSize);
+	            this.text.forEach(function (t, idx) {
+	                ctx.fillText(t, left + Node.padding, top + idx * _this6.lineHeight + _this6.fontSize);
+	            });
 	        }
 	    }, {
 	        key: 'renderBox',
@@ -690,6 +762,8 @@
 	            if (!this.children.length) {
 	                this.t_top = this.top;
 	                this.t_height = this.height;
+	                this.t_bottom = this.top + this.height;
+	                this.tc_height = 0;
 	                return;
 	            }
 	            var child = this.children[0];
@@ -700,20 +774,25 @@
 	                t_height = _child.t_height,
 	                left = _child.left,
 	                height = _child.height,
-	                ftop = child.t_top;
+	                tc_height = _child.tc_height,
+	                fbottom = child.top + child.height;
 
 	            this.t_top = child.t_top;
+	            this.tc_height = child.tc_height || child.height;
+	            this.t_bottom = child.t_top + child.tc_height;
 	            for (var i = 1; i < this.children.length; i++) {
 	                child = this.children[i];
 	                child.layout();
-	                top = top + t_height / 2 + height / 2 + child.t_height / 2 - this.height / 2 + PH;
+	                // top = top + t_height / 2 + height + child.t_height / 2 - this.height + PH
+	                top = top + height + (t_height - tc_height) / 2 + PH + child.tc_height + (child.t_height - child.tc_height) / 2 - child.height;
 	                child.moveTo(left, top);
 	                height = child.height;
 	                t_height = child.t_height;
+	                tc_height = child.tc_height;
 	            }
-	            var bottom = top + t_height / 2 + height / 2;
-	            this.t_height = bottom - this.t_top;
-	            this.setPos(left - PW - this.width, (ftop + bottom) / 2 - this.height / 2);
+	            var bottom = top + height;
+	            this.t_height = top + t_height - this.t_top;
+	            this.setPos(left - PW - this.width, (fbottom + bottom) / 2 - this.height);
 	        }
 	    }, {
 	        key: 'mapCoor',
@@ -819,12 +898,17 @@
 	        var coor = node.mapCoor();
 	        if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
 	            pointer = true;
-	            if (!node.isover) {
+	            if (!node.isover && !node.isdragstart) {
 	                node.emit('mouseover');
+	            }
+	            if (!node.isdragstart) {
+	                e.overNode = node;
 	            }
 	        } else {
 	            node.isover && node.emit('mouseleave');
 	        }
+	    });
+	    nodes.map(function (node) {
 	        if (node.isdown && !node.isdragstart) {
 	            node.emit('dragstart', e);
 	        } else if (node.isdown) {
@@ -2885,7 +2969,7 @@
 	var data = {
 	    "text": "双击开始",
 	    "children": [{
-	        "text": "Big Text jylZnode 1",
+	        "text": "Big Text \njylZnode 1",
 	        "children": [{
 	            "text": "Big Text jylZnode 1.1",
 	            "children": []
@@ -2902,13 +2986,13 @@
 	    }, {
 	        "text": "Big Text jylZnode 2",
 	        "children": [{
-	            "text": "Big Text jylZnode 2.1",
+	            "text": "Big Text \njylZnode 2.1",
 	            "children": []
 	        }, {
 	            "text": "Big Text jylZnode 2.2",
 	            "children": []
 	        }, {
-	            "text": "Big Text jylZnode 2.3",
+	            "text": "Big Text \njylZnode 2.3",
 	            "children": []
 	        }, {
 	            "text": "Big Text jylZnode 2.4",

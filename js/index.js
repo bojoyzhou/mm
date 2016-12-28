@@ -37,6 +37,7 @@ class FrameManage {
         this.canvas.height = document.body.offsetHeight
         this.ctx = this.canvas.getContext('2d')
         this.oriCtx = this.oriCanvas.getContext('2d')
+        this.ischanged = false
         this.run = this.run.bind(this)
         this.run()
     }
@@ -75,13 +76,19 @@ class FrameManage {
         })
         return true
     }
+    change(){
+        this.ischanged = true
+    }
     run(t) {
-        this.clear(this.oriCtx)
-        this.nodes.forEach(node => {
-            node.renderDeep()
-        })
-        this.clear(this.ctx)
-        this.ctx.drawImage(this.oriCanvas, 0, 0)
+        // if(this.ischanged){
+            this.clear(this.oriCtx)
+            this.nodes.forEach(node => {
+                node.renderDeep()
+            })
+            this.clear(this.ctx)
+            this.ctx.drawImage(this.oriCanvas, 0, 0)
+            this.ischanged = false
+        // }
         requestAnimationFrame(this.run)
         this.t = t
     }
@@ -101,7 +108,6 @@ class Node extends EventEmitter {
     constructor(text, isroot) {
         super()
         this.children = []
-        this.text = text
         this.id = Node.id
         Node.id += 1
         this.isroot = !!isroot
@@ -112,12 +118,12 @@ class Node extends EventEmitter {
         this.ctx.font = `600 ${this.fontSize}px Arial`
         this.ctx.fillStyle = "rgba(0, 0, 0, .75)"
         this.ctx.textAlign = "left"
-        this.height = 20
         this.left = 0
         this.top = 0
         this.size = 10
-        this.width = this.getWidth()
         this.isleft = false
+        this.lineHeight = 20
+        this.setText(text)
         this.applyStyle = this.applyStyle.bind(this)
 
         this.isover = false
@@ -157,6 +163,7 @@ class Node extends EventEmitter {
         this.isover = true
     }
     onMouseLeave() {
+        this.fontSize = 16
         this.isover = false
     }
     onMouseUp() {
@@ -187,8 +194,15 @@ class Node extends EventEmitter {
             next = next.next()
         }
     }
+    overon(node){
+        this.overnode = node
+    }
     onDrag(e) {
         this.moveBy(e.movementX, e.movementY)
+        if(e.overNode){
+            e.overNode.fontSize = 18
+        }
+        this.overon(e.overNode)
         if (this.isroot) {
             return
         }
@@ -210,36 +224,44 @@ class Node extends EventEmitter {
     onDragDrop() {
         this.isdragstart = false
         this.isdown = false
-        this.parent.children.sort((a, b) => {
-            return a.top > b.top
-        })
-        this.parent.children.forEach((child, idx) => {
-            child.index = idx
-        })
-        let next = this.next(),
-            prev = this.prev(),
-            parent = this.parent
-        if(next){
-            let {left, t_top} = next
-            this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2)
-        }else if(prev){
-            let {left, t_top, t_height} = prev
-            this.moveTo(left, t_top + t_height + PH)
-        }else if(parent){
-            let {left, top} = parent
-            this.moveTo(left + parent.width + PW, top)
+
+        if(this.overnode){
+            this.remove()
+            this.overnode.addNode(this)
+        }else{
+            this.parent.children.sort((a, b) => {
+                return a.top > b.top
+            })
+            this.parent.children.forEach((child, idx) => {
+                child.index = idx
+            })
+            let next = this.next(),
+                prev = this.prev(),
+                parent = this.parent
+            if(next){
+                let {left, t_top} = next
+                this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2)
+            }else if(prev){
+                let {left, t_top, t_height} = prev
+                this.moveTo(left, t_top + t_height + PH)
+            }else if(parent){
+                let {left, top} = parent
+                this.moveTo(left + parent.width + PW, top)
+            }
         }
-        // this.stopAnimate()
         this.root.layout()
     }
     getWidth() {
         this.ctx.font = `600 ${this.fontSize}px Arial`
         this.ctx.fillStyle = "rgba(0, 0, 0, .75)"
         this.ctx.textAlign = "left"
-        return this.ctx.measureText(this.text).width + Node.padding * 2
+        this.height = this.text.length * this.lineHeight
+        return Math.max.apply(Math, this.text.map((t, idx) => {
+            return this.ctx.measureText(t).width + Node.padding * 2
+        }))
     }
     setText(text) {
-        this.text = text
+        this.text = text.split('\n')
         const width = this.getWidth()
         this.children.forEach(child => (child.moveBy(width - this.width, 0)))
         this.width = width
@@ -287,6 +309,36 @@ class Node extends EventEmitter {
         n.index = this.children.length
         this.children.push(n)
         return n
+    }
+    addNode(n){
+        n.parent = this
+        n.level = this.level + 1
+        n.root = this.root
+        n.data = this.data
+        n.color = this.color
+        n.index = this.children.length
+        this.children.push(n)
+        if(this.isroot){
+            this.color = randomColor()
+        }
+        n.flush()
+    }
+    flush(){
+        this.level = this.parent.level + 1
+        this.color = this.parent.color
+        this.size = Math.max(10 - this.level, 2)
+        this.children.forEach(child => {
+            child.flush()
+        })
+    }
+    removeNode(n){
+        this.children = this.children.filter(child => (child !== n))
+        this.children.forEach((n, idx) => {
+            n.index = idx
+        })
+    }
+    remove(){
+        this.parent.removeNode(this)
     }
     prev() {
         if (this.index >= 1) {
@@ -410,7 +462,9 @@ class Node extends EventEmitter {
         ctx.font = `600 ${this.fontSize}px Arial`
         ctx.fillStyle = "rgba(0, 0, 0, .75)"
         ctx.textAlign = "left"
-        ctx.fillText(this.text, left + Node.padding, top + this.fontSize)
+        this.text.forEach((t, idx) => {
+            ctx.fillText(t, left + Node.padding, top + idx * this.lineHeight + this.fontSize)
+        })
     }
     renderBox() {
         const round = 5
@@ -459,25 +513,31 @@ class Node extends EventEmitter {
         if (!this.children.length) {
             this.t_top = this.top
             this.t_height = this.height
+            this.t_bottom = this.top + this.height
+            this.tc_height = 0
             return
         }
         let child = this.children[0]
 
         child.layout()
-        let { top, t_height, left, height } = child,
-        ftop = child.t_top
+        let { top, t_height, left, height, tc_height } = child,
+            fbottom = child.top + child.height
         this.t_top = child.t_top
+        this.tc_height = child.tc_height || child.height
+        this.t_bottom = child.t_top + child.tc_height
         for (let i = 1; i < this.children.length; i++) {
             child = this.children[i]
             child.layout()
-            top = top + t_height / 2 + height / 2 + child.t_height / 2 - this.height / 2 + PH
+            // top = top + t_height / 2 + height + child.t_height / 2 - this.height + PH
+            top = top + height + (t_height - tc_height) / 2 + PH + child.tc_height + (child.t_height - child.tc_height) / 2 - child.height
             child.moveTo(left, top)
             height = child.height
             t_height = child.t_height
+            tc_height = child.tc_height
         }
-        let bottom = top + t_height / 2 + height / 2
-        this.t_height = bottom - this.t_top
-        this.setPos(left - PW - this.width, (ftop + bottom) / 2 - this.height / 2)
+        let bottom = top + height
+        this.t_height = top + t_height - this.t_top
+        this.setPos(left - PW - this.width, (fbottom + bottom) / 2 - this.height)
     }
     mapCoor() {
         return [this.left, this.top, this.left + this.width, this.top + this.height]
@@ -553,12 +613,17 @@ document.body.addEventListener('mousemove', e => {
         let coor = node.mapCoor()
         if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
             pointer = true
-            if (!node.isover) {
+            if (!node.isover && !node.isdragstart) {
                 node.emit('mouseover')
+            }
+            if(!node.isdragstart){
+                e.overNode = node
             }
         } else {
             node.isover && node.emit('mouseleave')
         }
+    })
+    nodes.map(node => {
         if (node.isdown && !node.isdragstart) {
             node.emit('dragstart', e)
         } else if (node.isdown) {
