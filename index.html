@@ -48,6 +48,19 @@
     .none{
         left: 110%;
     }
+    textarea{
+        position: absolute;
+        display: block;
+        border: none;
+        font-size: 16px;
+        line-height: 20px;
+        resize: none;
+        overflow: hidden;
+        font-family: Arial;
+        font-weight: 600;
+        margin-left: 1px;
+        margin-top: -1px;
+    }
     </style>
 </head>
 
@@ -56,6 +69,7 @@
     <div id="area" class="area"></div>
     <canvas id="nodes" class="nodes none"></canvas>
     <canvas id="realCanvas" class="nodes"></canvas>
+    <textarea name="" id="ta" cols="30" rows="10"></textarea>
     <script type="text/javascript" src="index.bundle.js"></script>
 </body>
 

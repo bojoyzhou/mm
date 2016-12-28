@@ -76,19 +76,19 @@ class FrameManage {
         })
         return true
     }
-    change(){
+    change() {
         this.ischanged = true
     }
     run(t) {
         // if(this.ischanged){
-            this.clear(this.oriCtx)
-            this.nodes.forEach(node => {
-                node.renderDeep()
-            })
-            this.clear(this.ctx)
-            this.ctx.drawImage(this.oriCanvas, 0, 0)
-            this.ischanged = false
-        // }
+        this.clear(this.oriCtx)
+        this.nodes.forEach(node => {
+            node.renderDeep()
+        })
+        this.clear(this.ctx)
+        this.ctx.drawImage(this.oriCanvas, 0, 0)
+        this.ischanged = false
+            // }
         requestAnimationFrame(this.run)
         this.t = t
     }
@@ -158,19 +158,68 @@ class Node extends EventEmitter {
         this.on('drag', this.onDrag)
         this.on('dragstart', this.onDragStart)
         this.on('dragdrop', this.onDragDrop)
-        this.onDblclick = this.onDblclick.bind(this)
+        this.on('dblclick', this.onDblClick)
+        this.on('click', this.onClick)
+        this.on('focus', this.onFocus)
+        this.on('blur', this.onBlur)
     }
     onMouseOver() {
         this.isover = true
-        document.body.addEventListener('dblclick', this.onDblclick, false)
     }
-    onDblclick(e){
+    onClick(e){
+        if(this.isfocus){
+            this.setCursor(e)
+        }
+    }
+    setCursor(e){
+        console.log(e)
+    }
+    onFocus(){
+        this.focus()
+    }
+    onBlur(){
+        this.blur()
+    }
+    onDblClick(e) {
 
+    }
+    focus() {
+        let that = this
+        this.isfocus = true
+        sync(ta, this)
+        ta.value = this.text.join('\n')
+        ta.oninput = oninput
+        ta.onkeydown = (e) => {
+            if(e.code == "Enter" && !e.altKey){
+                that.emit('addbrother')
+                return false
+            }else if(e.code == "Enter" && e.altKey){
+                const caretPos = ta.selectionStart + 1
+                ta.value = ta.value.slice(0, ta.selectionStart) + '\n' + ta.value.slice(ta.selectionEnd)
+                oninput()
+                ta.setSelectionRange(caretPos, caretPos)
+                return false
+            }else if(e.code == "Tab"){
+                that.emit('addchild')
+            }
+        }
+        function oninput(){
+            that.setText(ta.value)
+            that.root.layout()
+            sync(ta, that)
+        }
+        function sync(t, n){
+            t.style = `display:block; left: ${n.left + 1};top: ${n.top};width: ${n.width};height: ${n.height};`
+        }
+        ta.focus()
+    }
+    blur() {
+        this.isfocus = false
+        ta.style.display = 'none'
     }
     onMouseLeave() {
         this.fontSize = 16
         this.isover = false
-        document.body.removeEventListener('dblclick', this.onDblclick, false)
     }
     onMouseUp() {
         this.isdown = false
@@ -200,12 +249,12 @@ class Node extends EventEmitter {
             next = next.next()
         }
     }
-    overon(node){
+    overon(node) {
         this.overnode = node
     }
     onDrag(e) {
         this.moveBy(e.movementX, e.movementY)
-        if(e.overNode){
+        if (e.overNode) {
             e.overNode.fontSize = 18
         }
         this.overon(e.overNode)
@@ -217,24 +266,23 @@ class Node extends EventEmitter {
         }
         let children = this.parent.children,
             index = this.index
-        let a = children.slice(0).sort((a, b) => {
+        children.slice(0).sort((a, b) => {
             return a.top > b.top
         }).map((child, idx) => {
             if (child.index == index) {
-                return [child.text, 'ccc'].join(', ')
+                return
             }
             child.moveTo.apply(child, this.pos[idx])
-            return [child.text, this.pos[idx]].join(', ')
         })
     }
     onDragDrop() {
         this.isdragstart = false
         this.isdown = false
 
-        if(this.overnode){
+        if (this.overnode) {
             this.remove()
             this.overnode.addNode(this)
-        }else{
+        } else {
             this.parent.children.sort((a, b) => {
                 return a.top > b.top
             })
@@ -244,14 +292,14 @@ class Node extends EventEmitter {
             let next = this.next(),
                 prev = this.prev(),
                 parent = this.parent
-            if(next){
-                let {left, t_top} = next
+            if (next) {
+                let { left, t_top } = next
                 this.moveTo(left, t_top - PH - this.t_height / 2 - this.height / 2)
-            }else if(prev){
-                let {left, t_top, t_height} = prev
+            } else if (prev) {
+                let { left, t_top, t_height } = prev
                 this.moveTo(left, t_top + t_height + PH)
-            }else if(parent){
-                let {left, top} = parent
+            } else if (parent) {
+                let { left, top } = parent
                 this.moveTo(left + parent.width + PW, top)
             }
         }
@@ -271,6 +319,7 @@ class Node extends EventEmitter {
         const width = this.getWidth()
         this.children.forEach(child => (child.moveBy(width - this.width, 0)))
         this.width = width
+        return width
     }
     getEdgeP() {
         const { left, top } = this.getPos()
@@ -316,7 +365,7 @@ class Node extends EventEmitter {
         this.children.push(n)
         return n
     }
-    addNode(n){
+    addNode(n) {
         n.parent = this
         n.level = this.level + 1
         n.root = this.root
@@ -324,12 +373,12 @@ class Node extends EventEmitter {
         n.color = this.color
         n.index = this.children.length
         this.children.push(n)
-        if(this.isroot){
+        if (this.isroot) {
             this.color = randomColor()
         }
         n.flush()
     }
-    flush(){
+    flush() {
         this.level = this.parent.level + 1
         this.color = this.parent.color
         this.size = Math.max(10 - this.level, 2)
@@ -337,13 +386,13 @@ class Node extends EventEmitter {
             child.flush()
         })
     }
-    removeNode(n){
+    removeNode(n) {
         this.children = this.children.filter(child => (child !== n))
         this.children.forEach((n, idx) => {
             n.index = idx
         })
     }
-    remove(){
+    remove() {
         this.parent.removeNode(this)
     }
     prev() {
@@ -373,13 +422,13 @@ class Node extends EventEmitter {
         this.children.forEach(child => child.moveBy(left - this.left, top - this.top))
         this.setPos(left, top)
     }
-    stopAnimate(){
+    stopAnimate() {
         this.startLeft = this.left
         this.startTop = this.top
         this.startTime = Date.now()
     }
     setPos(left, top) {
-        if(Date.now() - this.startTime > 300){
+        if (Date.now() - this.startTime > 300) {
             this.startLeft = this.left
             this.startTop = this.top
             this.startTime = Date.now()
@@ -499,7 +548,7 @@ class Node extends EventEmitter {
         ctx.shadowBlur = 0
     }
     renderDeep() {
-        if(this.display === false){
+        if (this.display === false) {
             return
         }
         this.children.forEach(child => child.renderDeep())
@@ -527,7 +576,7 @@ class Node extends EventEmitter {
 
         child.layout()
         let { top, t_height, left, height, tc_height, t_top } = child,
-            fbottom = child.top + child.height
+        fbottom = child.top + child.height
         this.t_top = t_top
         this.tc_height = child.tc_height || child.height
         this.t_bottom = this.t_top + this.tc_height
@@ -542,22 +591,23 @@ class Node extends EventEmitter {
             t_top = child.t_top
         }
         let bottom = top + height
-        this.t_height = top + t_height - this.t_top
+        this.t_height = Math.max(top + t_height - this.t_top, this.height)
         this.setPos(left - PW - this.width, (fbottom + bottom) / 2 - this.height)
+        this.t_top = Math.min(this.t_top, this.top)
     }
     mapCoor() {
         return [this.left, this.top, this.left + this.width, this.top + this.height]
     }
-    hide(){
+    hide() {
         this.display = false
     }
-    show(){
+    show() {
         this.display = true
     }
-    clone(){
+    clone() {
         var n = new Node(this.text, this.isroot)
-        for(let i in this){
-            if(this.hasOwnProperty(i)){
+        for (let i in this) {
+            if (this.hasOwnProperty(i)) {
                 n[i] = this[i]
             }
         }
@@ -587,10 +637,19 @@ rootNode.moveBy(500, 400)
 rootNode.renderDeep()
 window.rootNode = rootNode
 
+document.body.addEventListener('click', (e) => {
+    const nodes = getNodes(e)
+    console.log(nodes)
+    nodes.forEach(node => node.emit('click'))
+    nodes.others().forEach(node => node.emit('blur'))
+}, false)
 document.body.addEventListener('dblclick', (e) => {
-    nodes.forEach(node => node.blur())
-    const node = getNodes(e)[0]
-    node.focus()
+    const nodes = getNodes(e)
+    nodes.others().forEach(node => node.emit('blur'))
+    nodes.forEach(node => {
+        node.emit('dblclick')
+        node.emit('focus')
+    })
 }, false)
 let isdown = false
 document.body.addEventListener('mousedown', e => {
@@ -625,7 +684,7 @@ document.body.addEventListener('mousemove', e => {
         if (!node.isover && !node.isdragstart) {
             node.emit('mouseover')
         }
-        if(!node.isdragstart){
+        if (!node.isdragstart) {
             e.overNode = node
         }
     })
@@ -633,7 +692,7 @@ document.body.addEventListener('mousemove', e => {
         node.isover && node.emit('mouseleave')
     })
     nodes.map(node => {
-        if(node.isroot){
+        if (node.isroot) {
             return
         }
         if (node.isdown && !node.isdragstart) {
@@ -653,9 +712,11 @@ document.body.addEventListener('mousemove', e => {
     }
 
 })
-function getNodes(e){
+
+function getNodes(e) {
     const { clientX, clientY } = e
-    let others = [], result
+    let others = [],
+        result
     result = nodes.filter(node => {
         let coor = node.mapCoor()
         if (coor[0] < clientX && coor[1] < clientY && coor[2] > clientX && coor[3] > clientY) {
@@ -664,7 +725,7 @@ function getNodes(e){
         others.push(node)
         return false
     })
-    result.others = () =>{
+    result.others = () => {
         return others
     }
     return result

@@ -16,7 +16,7 @@ var data = {
             "children": []
         }]
     }, {
-        "text": "Big Text jylZnode 2",
+        "text": "Big Text\n jylZnode 2\n jylZnode 2\n jylZnode 2\n jylZnode 2\n jylZnode 2",
         "children": [{
             "text": "Big Text jylZnode 1.1",
             "children": []
