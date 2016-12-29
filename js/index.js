@@ -232,6 +232,10 @@ class Node extends EventEmitter {
         this.textarea.style.display = 'none'
     }
     onAddBrother(){
+        if(!this.parent){
+            this.blur()
+            return
+        }
         let n = this.parent.addChild('', this.index + 1)
         this.root.layout()
         n.focus()
@@ -291,7 +295,7 @@ class Node extends EventEmitter {
         let children = this.parent.children,
             index = this.index
         children.slice(0).sort((a, b) => {
-            return a.top > b.top
+            return a.top + a.height > b.top + b.height
         }).map((child, idx) => {
             if (child.index == index) {
                 return
@@ -300,17 +304,22 @@ class Node extends EventEmitter {
         })
     }
     onDragDrop() {
+        let needLayout = false
         this.isdragstart = false
         this.isdown = false
 
         if (this.overnode) {
             this.remove()
             this.overnode.addNode(this)
+            needLayout = true
         } else {
             this.parent.children.sort((a, b) => {
-                return a.top > b.top
+                return a.top + a.height > b.top + b.height
             })
             this.parent.children.forEach((child, idx) => {
+                if(child.index !== idx){
+                    needLayout = true
+                }
                 child.index = idx
             })
             let next = this.next(),
@@ -327,7 +336,9 @@ class Node extends EventEmitter {
                 this.moveTo(left + parent.width + PW, top)
             }
         }
-        this.root.layout()
+        if(needLayout){
+            this.root.layout()
+        }
     }
     getWidth() {
         this.ctx.font = `600 ${this.fontSize}px Arial`
@@ -450,6 +461,8 @@ class Node extends EventEmitter {
         this.children.forEach(child => child.moveBy(x, y))
         this.setPos(this.left + x, this.top + y)
         this.a_top += y
+        this.firstLine += y
+        this.lastLine += y
     }
     moveTo(left, top) {
         let x = left - this.left,
@@ -664,7 +677,7 @@ Node.parse(data)
 var rootNode = Node.nodes[0]
 frameManager.regist(rootNode)
 rootNode.layout()
-rootNode.moveBy(500, 400)
+rootNode.moveTo(30, document.body.offsetHeight / 2)
 rootNode.renderDeep()
 window.rootNode = rootNode
 
@@ -755,8 +768,10 @@ document.body.addEventListener(EVENT.MOUSEMOVE, e => {
         if (node.isdown && !node.isdragstart) {
             node.emit('dragstart', e)
         } else if (node.isdown) {
-            e.movementX = moveX - startX
-            e.movementY = moveY - startY
+            try{
+                e.movementX = moveX - startX
+                e.movementY = moveY - startY
+            }catch(e){}
             node.emit('drag', e)
             isdrag = true
         }

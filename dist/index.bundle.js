@@ -385,6 +385,10 @@
 	    }, {
 	        key: 'onAddBrother',
 	        value: function onAddBrother() {
+	            if (!this.parent) {
+	                this.blur();
+	                return;
+	            }
 	            var n = this.parent.addChild('', this.index + 1);
 	            this.root.layout();
 	            n.focus();
@@ -458,7 +462,7 @@
 	            var children = this.parent.children,
 	                index = this.index;
 	            children.slice(0).sort(function (a, b) {
-	                return a.top > b.top;
+	                return a.top + a.height > b.top + b.height;
 	            }).map(function (child, idx) {
 	                if (child.index == index) {
 	                    return;
@@ -469,17 +473,22 @@
 	    }, {
 	        key: 'onDragDrop',
 	        value: function onDragDrop() {
+	            var needLayout = false;
 	            this.isdragstart = false;
 	            this.isdown = false;
 
 	            if (this.overnode) {
 	                this.remove();
 	                this.overnode.addNode(this);
+	                needLayout = true;
 	            } else {
 	                this.parent.children.sort(function (a, b) {
-	                    return a.top > b.top;
+	                    return a.top + a.height > b.top + b.height;
 	                });
 	                this.parent.children.forEach(function (child, idx) {
+	                    if (child.index !== idx) {
+	                        needLayout = true;
+	                    }
 	                    child.index = idx;
 	                });
 	                var next = this.next(),
@@ -502,7 +511,9 @@
 	                    this.moveTo(_left2 + parent.width + PW, top);
 	                }
 	            }
-	            this.root.layout();
+	            if (needLayout) {
+	                this.root.layout();
+	            }
 	        }
 	    }, {
 	        key: 'getWidth',
@@ -670,6 +681,8 @@
 	            });
 	            this.setPos(this.left + x, this.top + y);
 	            this.a_top += y;
+	            this.firstLine += y;
+	            this.lastLine += y;
 	        }
 	    }, {
 	        key: 'moveTo',
@@ -958,7 +971,7 @@
 	var rootNode = Node.nodes[0];
 	frameManager.regist(rootNode);
 	rootNode.layout();
-	rootNode.moveBy(500, 400);
+	rootNode.moveTo(30, document.body.offsetHeight / 2);
 	rootNode.renderDeep();
 	window.rootNode = rootNode;
 
@@ -1063,8 +1076,10 @@
 	        if (node.isdown && !node.isdragstart) {
 	            node.emit('dragstart', e);
 	        } else if (node.isdown) {
-	            e.movementX = moveX - startX;
-	            e.movementY = moveY - startY;
+	            try {
+	                e.movementX = moveX - startX;
+	                e.movementY = moveY - startY;
+	            } catch (e) {}
 	            node.emit('drag', e);
 	            isdrag = true;
 	        }
