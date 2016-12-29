@@ -31,12 +31,10 @@ class FrameManage {
         this.t = 0
         this.tasks = []
         this.nodes = []
-        this.oriCanvas = document.getElementById('nodes')
-        this.canvas = document.getElementById('realCanvas')
+        this.canvas = document.getElementById('canvas')
         this.canvas.width = document.body.offsetWidth
         this.canvas.height = document.body.offsetHeight
         this.ctx = this.canvas.getContext('2d')
-        this.oriCtx = this.oriCanvas.getContext('2d')
         this.ischanged = false
         this.run = this.run.bind(this)
         this.run()
@@ -70,7 +68,6 @@ class FrameManage {
             return
         }
         this.clear(this.ctx)
-        this.clear(this.oriCtx)
         this.nodes.forEach(node => {
             node.renderDeep()
         })
@@ -81,28 +78,27 @@ class FrameManage {
     }
     run(t) {
         // if(this.ischanged){
-        this.clear(this.oriCtx)
+        this.clear(this.ctx)
         this.nodes.forEach(node => {
             node.renderDeep()
         })
-        this.clear(this.ctx)
-        this.ctx.drawImage(this.oriCanvas, 0, 0)
-        this.ischanged = false
-            // }
+        // this.clear(this.ctx)
+        // this.ctx.drawImage(this.oriCanvas, 0, 0)
+        // this.ischanged = false
+        //     // }
         requestAnimationFrame(this.run)
         this.t = t
     }
 }
 
 class Node extends EventEmitter {
-    static container = document.getElementById('nodes');
     static id = 1;
     static nodes = [];
     static padding = 4;
     static frameManager = null;
-    static ta = document.getElementById('ta')
+    static ta = document.createElement('textarea')
     static setCanvas() {
-        Node.canvas = document.getElementById('nodes')
+        Node.canvas = document.getElementById('canvas')
         Node.canvas.width = document.body.offsetWidth
         Node.canvas.height = document.body.offsetHeight
         Node.ctx = Node.canvas.getContext('2d')
@@ -140,7 +136,7 @@ class Node extends EventEmitter {
         this.beforeDragX = 0
         this.beforeDragY = 0
 
-        this.textarea = ta.cloneNode(1)
+        this.textarea = Node.ta.cloneNode(1)
         this.textarea.id = this.id
 
         Node.nodes.push(this)
@@ -483,17 +479,6 @@ class Node extends EventEmitter {
         this.t_top += top - this.top
         this.left = left
         this.top = top
-    }
-    createElement(text) {
-        let elem = document.createElement('div')
-        elem.classList.add('node')
-        if (this.isroot) {
-            elem.classList.add('root')
-        }
-        elem.textContent = text
-        elem.setAttribute('id', `node-${this.id}`)
-        this.container.appendChild(elem)
-        return elem
     }
     renderArc() {
         let p0 = this.parent.getEdgeP(),
