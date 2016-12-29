@@ -1095,6 +1095,9 @@
 	    }
 	    startX = moveX;
 	    startY = moveY;
+	    e.stopPropagation();
+	    e.preventDefault();
+	    return false;
 	});
 
 	function getNodes(e) {

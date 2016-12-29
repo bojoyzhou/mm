@@ -787,6 +787,9 @@ document.body.addEventListener(EVENT.MOUSEMOVE, e => {
     }
     startX = moveX
     startY = moveY
+    e.stopPropagation()
+    e.preventDefault()
+    return false
 })
 
 function getNodes(e) {
