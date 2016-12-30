@@ -6,9 +6,7 @@ module.exports = {
     debug: process.env.NODE_ENV !== 'production',
     context: __dirname,
     entry: {
-        index: ['./index.html', './js/index.js'],
-        worker: ['./js/worker.js'],
-        canvas: ['./test/canvas.html','./test/testBezier.js'],
+        index: ['./index.html', './js/index.js']
     },
     output: {
         path: path.join(__dirname, './dist'),

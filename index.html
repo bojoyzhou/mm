@@ -12,47 +12,17 @@
         margin: 0;
         padding: 0;
     }
-    .node{
-        position: absolute;
-        padding: 1px;
-        cursor: pointer;
-        user-select: none;
-    }
-    .node.is-focus{
-        border-radius: 2px;
-        outline: -webkit-focus-ring-color auto 5px;
-    }
-    .root{
-        box-shadow: 0 1px 8px rgba(0,0,0,.2);
-        border-radius: 5px;
-        background: #fff;
-        padding: 10px;
-    }
-    .node--active{
-        box-shadow: 0 0 8px #29B6F6;
-    }
-    .node--edit{
-        box-shadow: 0 2 2px #29B6F6;
-    }
-    .area{
-        position: absolute;
-        border: #29B6F6 solid 1px;
-        background: rgba(41, 182, 246, .3)
-    }
-    .nodes, canvas{
+    canvas{
         width: 100%;
         height: 100%;
         position: absolute;
         left: 0;
         top: 0;
     }
-    .none{
-        left: 110%;
-    }
     textarea{
         position: absolute;
         border: none;
-        font-size: 16px;
+        font-size: 14px;
         line-height: 20px;
         resize: none;
         overflow: hidden;
@@ -60,17 +30,13 @@
         font-weight: 600;
         margin-left: 1px;
         margin-top: -1px;
+        /*transition: .3s;*/
         display: none;
     }
     </style>
 </head>
 
-<body oncontextmenu="return false;">
-    <div id="canvas"></div>
-    <div id="area" class="area"></div>
-    <canvas id="nodes" class="nodes none"></canvas>
-    <canvas id="realCanvas" class="nodes"></canvas>
-    <textarea name="" id="ta" cols="30" rows="10"></textarea>
+<body>
     <script type="text/javascript" src="index.bundle.js"></script>
 </body>
 
